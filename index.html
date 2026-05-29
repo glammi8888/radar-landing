@@ -49,7 +49,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px 6
 .form-row input::placeholder{color:#aaa;}
 .form-row button{padding:15px 24px;background:var(--black);color:var(--white);font-family:"Fira Code",monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;border:none;cursor:pointer;white-space:nowrap;transition:background .15s;}
 .form-row button:hover{background:var(--pink-btn);}
-.form-note{font-size:11px;color:var(--gray-text);letter-spacing:.04em;}
+.form-note{font-size:11px;color:var(--gray-text);letter-spacing:.04em;margin-top:20px;}
 .form-note .free-tag{color:var(--pink-dark);font-weight:500;}
 
 /* HERO RIGHT */
@@ -70,7 +70,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px 6
 @keyframes tick{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
 /* PROOF */
-.proof-bar{background:var(--gray-faint);border-bottom:1.5px solid var(--gray-border);padding:48px 60px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
+.proof-bar{background:var(--gray-faint);border-bottom:1.5px solid var(--gray-border);padding:48px 60px;display:flex;justify-content:center;align-items:center;}
 .proof-item{padding:0 40px;border-right:1.5px solid var(--gray-border);}
 .proof-item:first-child{padding-left:0;}
 .proof-item:last-child{border-right:none;}
@@ -216,7 +216,7 @@ footer a:hover{color:var(--pink-dark);}
   <div class="nav-right">
     <a href="#inside" class="nav-link">What's inside</a>
     <a href="#tiers" class="nav-link">Pricing</a>
-    <a href="#subscribe" class="nav-cta">Claim free issue</a>
+    <a href="https://glammi-studio.beehiiv.com/subscribe" target="_blank" class="nav-cta">Claim 4 free issues →</a>
   </div>
 </nav>
 
@@ -229,12 +229,8 @@ footer a:hover{color:var(--pink-dark);}
       <p class="hero-for">For med spa and aesthetic clinic owners who are done playing catch-up.</p>
     </div>
     <div>
-      <p class="hero-desc" style="margin-top:60px;">Every week, The Radar scans thousands of TikTok, Instagram and YouTube posts to surface what is moving in aesthetic medicine right now. Emerging treatments, cultural signals, content formats that are converting. Your first full issue is on us.</p>
-      <!-- REPLACE WITH BEEHIIV EMBED -->
-      <div class="form-row">
-        <input type="email" placeholder="your@email.com"/>
-        <button>Claim free issue →</button>
-      </div>
+      <p class="hero-desc" style="margin-top:60px;">Every week, The Radar scans thousands of TikTok, Instagram and YouTube posts to surface what is moving in aesthetic medicine right now. Emerging treatments, cultural signals, content formats that are converting. Your first 4 issues are on us.</p>
+      <a href="https://glammi-studio.beehiiv.com/subscribe" target="_blank" style="display:inline-block;padding:16px 36px;background:var(--black);color:var(--white);font-family:'Fira Code',monospace;font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;">CLAIM 4 FREE ISSUES →</a>
       <p class="form-note">// <span class="free-tag">100% free</span>. no credit card. no catch.</p>
     </div>
   </div>
@@ -279,17 +275,9 @@ footer a:hover{color:var(--pink-dark);}
 
 <!-- PROOF -->
 <div class="proof-bar">
-  <div class="proof-item">
-    <p class="proof-quote">"I knew the skin barrier trend was going to blow up three weeks before my clients started asking about it."</p>
-    <p class="proof-source">// Med spa owner, Los Angeles</p>
-  </div>
-  <div class="proof-item">
-    <p class="proof-quote">"I booked two new Sculptra consults the week The Radar flagged biostimulators trending. My competitors were still posting Botox specials."</p>
-    <p class="proof-source">// Aesthetic clinic director, Miami</p>
-  </div>
-  <div class="proof-item">
-    <p class="proof-quote">"The GLP-1 volume loss protocol we built off one Radar issue brought in six new consults in a week. Timing is everything."</p>
-    <p class="proof-source">// Injector &amp; clinic owner, NYC</p>
+  <div style="border:none;text-align:center;max-width:700px;margin:0 auto;padding:48px 24px;">
+    <p style="font-family:'AkzidenzGrotesk','Arial Black',Arial,sans-serif;font-weight:700;font-size:clamp(16px,1.8vw,22px);text-transform:uppercase;letter-spacing:-.01em;line-height:1.2;color:var(--black);margin-bottom:20px;">Be among the first 100 clinics to read what's moving before everyone else does.</p>
+    <p style="font-family:'AkzidenzGrotesk','Arial Black',Arial,sans-serif;font-weight:400;font-size:clamp(13px,1.6vw,16px);text-transform:uppercase;letter-spacing:.06em;line-height:1.6;color:var(--gray-text);">The first of its kind. Weekly social media trend intelligence built exclusively for aesthetic clinics. Nothing else like this exists in your industry.</p>
   </div>
 </div>
 
@@ -323,8 +311,8 @@ footer a:hover{color:var(--pink-dark);}
   </div>
 
   <div class="inside-sample">
-    <p class="sample-label">// From the issue of May 10, 2026</p>
-    <div class="sample-title">Trending Now. Week of May 10.</div>
+    <p class="sample-label">// From a recent issue</p>
+    <div class="sample-title">Trending Now.</div>
     <div class="sample-trends">
       <div class="sample-trend">
         <div class="sample-trend-name">GLP-1 / Ozempic Face</div>
@@ -344,7 +332,7 @@ footer a:hover{color:var(--pink-dark);}
         <div class="blurred"></div>
         <div class="blurred"></div>
       </div>
-      <p class="unlock-text">+ 7 more trends, content formats, audience pain points and creators to watch. Claim your free issue.</p>
+      <p class="unlock-text">+ 7 more trends, content formats, audience pain points and creators to watch. Claim your 4 free issues.</p>
     </div>
   </div>
 </section>
@@ -352,7 +340,7 @@ footer a:hover{color:var(--pink-dark);}
 <!-- SCARCITY -->
 <div class="scarcity">
   <p class="scarcity-text">The more clinics reading the same report,<br>the <span class="accent">less edge</span> it gives anyone.</p>
-  <p class="scarcity-sub">// Standard and Pro tiers are personalized to your market. Your intelligence stays yours.</p>
+  <p class="scarcity-sub">// The Pro tier is built exclusively for your market. Your intelligence stays yours.</p>
 </div>
 
 <!-- TIERS -->
@@ -372,7 +360,7 @@ footer a:hover{color:var(--pink-dark);}
         <li>Cultural signals from social media</li>
         <li>Same report sent to all free subscribers</li>
       </ul>
-      <a href="#subscribe" class="tier-cta">Claim free issue</a>
+      <a href="https://glammi-studio.beehiiv.com/subscribe" target="_blank" class="tier-cta">Claim 4 free issues →</a>
     </div>
     <div class="tier featured">
       <span class="tier-badge">Most popular</span>
@@ -387,7 +375,7 @@ footer a:hover{color:var(--pink-dark);}
         <li>AI-powered, editorially curated</li>
         <li>Cancel anytime</li>
       </ul>
-      <a href="#subscribe" class="tier-cta">Subscribe. $29/mo</a>
+      <a href="https://glammi-studio.beehiiv.com/upgrade" target="_blank" class="tier-cta">Subscribe. $29/mo →</a>
     </div>
     <div class="tier">
       <span class="tier-tag">Pro. limited spots</span>
@@ -398,10 +386,10 @@ footer a:hover{color:var(--pink-dark);}
         <li>Geolocalized competitive intelligence</li>
         <li>Written for your specific market</li>
         <li>Your competitors. Your zip code.</li>
-        <li>One clinic per market. limited spots</li>
+        <li>10 clinics per city. Then it closes.</li>
         <li>First mover advantage, guaranteed</li>
       </ul>
-      <a href="#subscribe" class="tier-cta">Apply for Pro</a>
+      <a href="https://glammi-studio.beehiiv.com/upgrade" target="_blank" class="tier-cta">Apply for Pro →</a>
     </div>
   </div>
 </section>
@@ -446,15 +434,11 @@ footer a:hover{color:var(--pink-dark);}
 
 <!-- FINAL CTA -->
 <section class="final" id="subscribe">
-  <p class="eyebrow">// Free to start</p>
-  <h2 class="final-title">Your first<br>issue is<br>on <span class="accent">us.</span></h2>
-  <p class="final-sub">One full issue, free. Read it. Use it. Then decide if you want to keep the edge.</p>
-  <!-- REPLACE WITH BEEHIIV EMBED -->
-  <div class="form-row">
-    <input type="email" placeholder="your@email.com"/>
-    <button>Claim free issue →</button>
-  </div>
-  <p class="form-note" style="text-align:center;margin-top:12px;">// no credit card. no catch. just intelligence.</p>
+  <p class="eyebrow">// Free for 4 weeks</p>
+  <h2 class="final-title">Your first<br>4 weeks<br>on <span class="accent">us.</span></h2>
+  <p class="final-sub">Four full issues, free. Read them. Use them. Then decide if you want to keep the edge.</p>
+  <a href="https://glammi-studio.beehiiv.com/subscribe" target="_blank" style="display:inline-block;padding:16px 36px;background:var(--pink-btn);color:var(--white);font-family:'Fira Code',monospace;font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;text-decoration:none;">CLAIM 4 FREE ISSUES →</a>
+  <p class="form-note" style="text-align:center;margin-top:20px;">// no credit card. no catch. just intelligence.</p>
 </section>
 
 <!-- FOOTER -->
