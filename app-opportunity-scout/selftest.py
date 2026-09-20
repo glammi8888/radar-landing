@@ -175,6 +175,53 @@ def run():
     check("JSON documents its sources", "iTunes Search API" in blob["sources"]["serp"])
     check("JSON carries provenance legend", "unavailable" in blob["provenanceLegend"])
 
+    # --- 9. Traction modelling ----------------------------------------------
+    print("\n[9] Traction modelling")
+    import time as _t
+    now = _t.time()
+    old_app = scout.normalise_app(itunes_record(20, "Formerly Hot", 400, 4.5,
+                                                release="2019-01-01T00:00:00Z"), 1, "x")
+    new_app = scout.normalise_app(itunes_record(21, "Actually Rising", 180, 4.7,
+                                                release="2026-03-01T00:00:00Z"), 2, "x")
+    check("lifetime rate available on first run",
+          scout.traction(old_app, {})["lifetimeRatingsPerDay"] is not None)
+    check("velocity withheld with one observation",
+          scout.traction(old_app, {})["currentRatingsPerDay"] is None)
+    short = scout.traction(old_app, {str(old_app["trackId"]): [[now - 3600, 399, 4.5],
+                                                               [now, 400, 4.5]]})
+    check("sub-1-day window withheld as too short", short["currentRatingsPerDay"] is None)
+
+    hist = {str(old_app["trackId"]): [[now - 14 * 86400, 400, 4.5], [now, 400, 4.5]],
+            str(new_app["trackId"]): [[now - 14 * 86400, 120, 4.7], [now, 180, 4.7]]}
+    summ = scout.traction_summary([old_app, new_app], hist)
+    names = [r["name"] for r in summ["smallRisers"]]
+    check("flat formerly-big app is NOT a riser", "Formerly Hot" not in names, str(names))
+    check("genuinely growing small app IS a riser", "Actually Rising" in names, str(names))
+    check("riser judged on measured velocity",
+          summ["smallRisers"][0]["basis"] == "current")
+    check("estimate prefers measured velocity", summ["estimateBasis"] == "current velocity")
+    check("momentum detects acceleration",
+          scout.traction(new_app, hist)["momentum"] > 1)
+    check("momentum detects stall", scout.traction(old_app, hist)["momentum"] == 0)
+
+    # --- 10. Download estimate honesty ---------------------------------------
+    print("\n[10] Download estimate honesty")
+    est = scout.estimate_downloads(2.0)
+    check("downloads is a RANGE, never a point", est["perDayLow"] < est["perDayHigh"])
+    check("range spans an order of magnitude", est["perDayHigh"] / est["perDayLow"] >= 9)
+    check("flagged as estimated", est["provenance"] == "estimated")
+    check("uncalibrated state is stated loudly", "UNCALIBRATED" in est["health"])
+    check("assumption is disclosed", "ASSUMED" in est["assumption"] or "fitted" in est["assumption"])
+    check("warns it adds no ranking information", "ranking information" in est["warning"])
+    check("no estimate without a rate", scout.estimate_downloads(None) is None)
+
+    # revenue must appear nowhere
+    blob_all = json.dumps({"row": [scout.SESSION.row(k) for k in scout.SESSION.keywords],
+                           "est": est, "traction": summ})
+    check("revenue never produced anywhere", '"revenue"' not in blob_all.lower())
+    check("revenue declared unavailable in export",
+          any("revenue" in m for m in json.loads(scout.export_json())["unavailableMetrics"]))
+
     print("\n" + "=" * 52)
     if FAILS:
         print(f"{len(FAILS)} FAILED:")

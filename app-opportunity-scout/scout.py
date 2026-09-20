@@ -367,6 +367,233 @@ def competitor_strength(c):
 
 
 # ---------------------------------------------------------------------------
+# PHASE 3B - TRACTION MODELLING
+#
+# This is the closest honest analogue to "downloads". It has three layers and
+# the layers are NOT equally trustworthy. The UI keeps them visually separate.
+#
+#   L1 OBSERVED   rating counts sampled over time. Apple's own numbers. No model.
+#   L2 CALCULATED velocity and momentum, arithmetic on L1. Formula shown.
+#   L3 ESTIMATED  downloads = ratings / ratingRate. ONE assumption, and it is a
+#                 ~10x-uncertain one, so the output is always a RANGE and the
+#                 rate is a dial you control. Never a point estimate.
+#
+# Deliberately absent: revenue. It needs downloads x free-to-paid conversion x
+# retention. Conversion is unobservable for any app but your own, so a revenue
+# figure would be an assumption cubed. See README.
+# ---------------------------------------------------------------------------
+HISTORY_PATH = os.path.join(ROOT, "history.json")
+CALIBRATION_PATH = os.path.join(ROOT, "calibration.json")
+SNAPSHOT_MIN_GAP = 6 * 3600     # don't record twice within 6h
+
+# A widely repeated industry rule of thumb, NOT a measured constant and NOT
+# sourced from Apple. Real rates vary by roughly 10x across genres, and by
+# whether the app uses SKStoreReviewController. The band is wide on purpose.
+# Supply calibration.json to replace it with something real.
+DEFAULT_RATING_RATE_BAND = (0.005, 0.05)      # 0.5% - 5% of users leave a rating
+
+
+def load_history():
+    try:
+        with open(HISTORY_PATH) as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
+
+
+def save_history(hist):
+    try:
+        with open(HISTORY_PATH, "w") as fh:
+            json.dump(hist, fh, separators=(",", ":"))
+    except Exception:
+        pass
+
+
+def record_snapshots(apps, hist=None):
+    """Append (timestamp, ratingCount, rating) per app. Deduped by time gap."""
+    hist = load_history() if hist is None else hist
+    now = time.time()
+    for a in apps:
+        tid, rc = a.get("trackId"), a.get("ratingCount")
+        if tid is None or not isinstance(rc, (int, float)):
+            continue
+        series = hist.setdefault(str(tid), [])
+        if series:
+            last_ts, last_rc = series[-1][0], series[-1][1]
+            if now - last_ts < SNAPSHOT_MIN_GAP and last_rc == rc:
+                continue
+        series.append([round(now), rc, a.get("rating")])
+        if len(series) > 200:
+            del series[:-200]
+    return hist
+
+
+def load_calibration():
+    """
+    Optional ground truth: real (downloads, ratings) pairs you supply, e.g. from
+    your own App Store Connect, or a public disclosure. Format:
+      {"pairs":[{"label":"my app","downloads":50000,"ratings":610}, ...]}
+    With pairs present the rating-rate band is FITTED instead of assumed.
+    """
+    try:
+        with open(CALIBRATION_PATH) as fh:
+            blob = json.load(fh)
+        rates = []
+        for pair in blob.get("pairs", []):
+            d, r = pair.get("downloads"), pair.get("ratings")
+            if isinstance(d, (int, float)) and isinstance(r, (int, float)) and d > 0 and r >= 0:
+                rates.append(r / d)
+        rates = [x for x in rates if x > 0]
+        if not rates:
+            return None
+        return {"band": (min(rates), max(rates)), "n": len(rates),
+                "median": statistics.median(rates),
+                "source": f"fitted from {len(rates)} ground-truth pair(s) you supplied"}
+    except Exception:
+        return None
+
+
+def rating_rate_band():
+    calib = load_calibration()
+    if calib:
+        return calib["band"], calib["source"], calib["n"]
+    return (DEFAULT_RATING_RATE_BAND,
+            "ASSUMED default band (0.5%-5%) - an industry rule of thumb, not measured data",
+            0)
+
+
+def estimate_downloads(ratings_per_day):
+    """
+    L3 ESTIMATE. downloads/day = ratings/day / ratingRate.
+
+    Returns a RANGE, never a point, because the divisor is uncertain by ~10x.
+    If the band is the default, this is arithmetic on an assumption - it tells
+    you an order of magnitude and nothing finer. Marked ESTIMATED everywhere.
+    """
+    if ratings_per_day is None:
+        return None
+    (lo_rate, hi_rate), source, n = rating_rate_band()
+    return {
+        "perDayLow": round(ratings_per_day / hi_rate, 1),
+        "perDayHigh": round(ratings_per_day / lo_rate, 1),
+        "perMonthLow": round(ratings_per_day / hi_rate * 30),
+        "perMonthHigh": round(ratings_per_day / lo_rate * 30),
+        "ratingRateBand": [lo_rate, hi_rate],
+        "calibrationPairs": n,
+        "assumption": source,
+        "provenance": "estimated",
+        "health": ("CALIBRATED against your own data" if n else
+                   "UNCALIBRATED - this is an assumption, not a measurement"),
+        "warning": ("Dividing every app by the same rate does not change which keyword ranks "
+                    "highest. This adds a sense of absolute scale, not ranking information."),
+    }
+
+
+def traction(app, hist):
+    """
+    L1/L2. Two different growth numbers - they answer different questions:
+
+      lifetimeRatingsPerDay = ratingCount / ageDays
+          Available on the FIRST run. It is a lifetime average, so a long-dead
+          app that was big years ago still scores well. Blunt, but free.
+
+      currentRatingsPerDay  = (newest - oldest) / days between snapshots
+          Needs >=2 research runs separated by >=1 day. This is the real signal.
+
+      momentum = current / lifetime
+          >1 means the app is growing FASTER than its own historical average,
+          i.e. accelerating now. This is the "small app gaining traction" flag.
+    """
+    rc, age = app.get("ratingCount"), app.get("ageDays")
+    out = {
+        "lifetimeRatingsPerDay": None, "currentRatingsPerDay": None,
+        "momentum": None, "observationDays": None, "snapshots": 0,
+        "ratingsGained": None, "accelerating": None, "note": None,
+        "provenance": "calculated",
+    }
+    if isinstance(rc, (int, float)) and isinstance(age, int) and age > 0:
+        out["lifetimeRatingsPerDay"] = round(rc / age, 3)
+
+    series = (hist or {}).get(str(app.get("trackId"))) or []
+    out["snapshots"] = len(series)
+    if len(series) < 2:
+        out["note"] = ("Only one observation so far. Re-run research in a few days and "
+                       "current velocity appears here.")
+        return out
+
+    (t0, rc0, _), (t1, rc1, _) = series[0], series[-1]
+    days = (t1 - t0) / 86400.0
+    if days < 1:
+        out["note"] = f"Observation window is only {days * 24:.1f}h - too short to be meaningful."
+        return out
+
+    out["observationDays"] = round(days, 1)
+    out["ratingsGained"] = rc1 - rc0
+    out["currentRatingsPerDay"] = round((rc1 - rc0) / days, 3)
+    if out["lifetimeRatingsPerDay"]:
+        out["momentum"] = round(out["currentRatingsPerDay"] / out["lifetimeRatingsPerDay"], 2)
+        out["accelerating"] = out["momentum"] > 1.2
+    if days < 7:
+        out["note"] = (f"Only {out['observationDays']} days of observation - treat velocity as "
+                       "provisional. A week or more is much steadier.")
+    return out
+
+
+def traction_summary(apps, hist):
+    """
+    Keyword-level rollup. Answers the brief's requirement #3 directly:
+    are SMALLER apps here actually gaining traction?
+    """
+    top10 = apps[:10]
+    for a in top10:
+        a["traction"] = traction(a, hist)
+
+    life = [a["traction"]["lifetimeRatingsPerDay"] for a in top10
+            if a["traction"]["lifetimeRatingsPerDay"] is not None]
+    cur = [a["traction"]["currentRatingsPerDay"] for a in top10
+           if a["traction"]["currentRatingsPerDay"] is not None]
+    accel = [a for a in top10 if a["traction"].get("accelerating")]
+
+    # The pattern actually being hunted: small apps (<500 ratings) that are
+    # nonetheless picking up ratings quickly. Demand validated without a moat.
+    # Judge on CURRENT velocity wherever we have it - a formerly-hot app that
+    # has since gone flat has a healthy lifetime average and is not a riser.
+    def best_rate(a):
+        t = a["traction"]
+        cur_rate = t.get("currentRatingsPerDay")
+        return (cur_rate, "current") if cur_rate is not None \
+            else (t.get("lifetimeRatingsPerDay"), "lifetime")
+
+    risers = []
+    for a in top10:
+        rc = a.get("ratingCount")
+        if not isinstance(rc, (int, float)) or rc >= 500:
+            continue
+        rate, basis = best_rate(a)
+        if (rate or 0) >= 0.3:
+            risers.append({"name": a["name"], "ratingCount": rc,
+                           "ratingsPerDay": rate, "basis": basis})
+
+    # Prefer measured current velocity over the lifetime average for the
+    # download estimate too - it reflects the market now, not its whole history.
+    headline_rate = statistics.median(cur) if cur else (statistics.median(life) if life else None)
+
+    return {
+        "medianLifetimeRatingsPerDay": round(statistics.median(life), 3) if life else None,
+        "medianCurrentRatingsPerDay": round(statistics.median(cur), 3) if cur else None,
+        "acceleratingCount": len(accel) if cur else None,
+        "smallRisers": risers,
+        "smallRiserCount": len(risers),
+        "hasTimeSeries": bool(cur),
+        "estimateBasis": "current velocity" if cur else "lifetime average",
+        "estimatedDownloads": estimate_downloads(headline_rate),
+        "explain": ("smallRisers are apps under 500 ratings gaining >=0.3 ratings/day, judged on "
+                    "measured current velocity where available and lifetime average otherwise. "
+                    "That is the pattern worth chasing: demand proven, no entrenched moat."),
+    }
+
+
+# ---------------------------------------------------------------------------
 # PHASE 5 - Demand. Real signals only. No manufactured volume, ever.
 # ---------------------------------------------------------------------------
 def fetch_search_hints(keyword, force=False):
@@ -880,8 +1107,10 @@ class Session:
                     "commercialIntent": intent, "demand": None, "demandConfidence": "UNKNOWN",
                     "competition": None, "competitionBand": None, "medianTop10Ratings": None,
                     "top10Under500": None, "dominant": None, "opportunity": None,
-                    "opportunityBand": None, "error": None}
+                    "opportunityBand": None, "tractionPerDay": None, "smallRisers": None,
+                    "accelerating": None, "error": None}
         comp, dem = res.get("competition") or {}, res.get("demand") or {}
+        trac = res.get("traction") or {}
         opp = opportunity(dem, comp, fit, intent)
         strength = comp.get("strength") or {}
         dom = comp.get("dominantIncumbent")
@@ -894,6 +1123,12 @@ class Session:
             "top10Under500": comp.get("under500"), "pctUnder500": comp.get("pctUnder500"),
             "dominant": (f"{dom['name']} ({dom['ratingCount']:,})" if dom else None),
             "avgStars": comp.get("avgStars"), "appCount": len(res.get("apps") or []),
+            "tractionPerDay": (trac.get("medianCurrentRatingsPerDay")
+                               if trac.get("hasTimeSeries")
+                               else trac.get("medianLifetimeRatingsPerDay")),
+            "tractionBasis": trac.get("estimateBasis"),
+            "smallRisers": trac.get("smallRiserCount"),
+            "accelerating": trac.get("acceleratingCount"),
             "productFit": fit, "commercialIntent": intent,
             "opportunity": opp.get("score"), "opportunityBand": opp.get("band"),
             "opportunityReason": opp.get("reason"),
@@ -930,13 +1165,16 @@ def run_research(keywords, force=False):
                 PROGRESS["log"].append(f"[{kw}] SERP failed: {err}")
             else:
                 comp = analyse_competition(apps, kw)
+                hist = record_snapshots(apps)
+                save_history(hist)
+                trac = traction_summary(apps, hist)
                 hints, herr = fetch_search_hints(kw, force=force)
                 if herr:
                     PROGRESS["log"].append(f"[{kw}] autocomplete unavailable: {herr}")
                 dem = assess_demand(kw, hints, herr, comp, asa_map.get(kw.lower().strip()))
                 SESSION.results[kw] = {
                     "apps": apps, "meta": meta, "competition": comp, "demand": dem,
-                    "hints": hints, "error": None,
+                    "traction": trac, "hints": hints, "error": None,
                     "relatedTerms": (hints or {}).get("terms"),
                 }
                 PROGRESS["log"].append(
@@ -962,6 +1200,9 @@ CSV_COLUMNS = [
     ("top10Under500", "TOP10_UNDER_500"), ("pctUnder500", "PCT_UNDER_500"),
     ("avgStars", "AVG_STARS"), ("dominant", "DOMINANT_COMPETITOR"),
     ("productFit", "PRODUCT_FIT_1_5"), ("commercialIntent", "COMMERCIAL_INTENT_1_5"),
+    ("tractionPerDay", "MEDIAN_TOP10_RATINGS_PER_DAY_OBSERVED"),
+    ("smallRisers", "SMALL_APPS_GAINING_TRACTION"),
+    ("accelerating", "TOP10_ACCELERATING_NOW"),
     ("opportunity", "OPPORTUNITY_0_100"), ("opportunityBand", "OPPORTUNITY_BAND"),
     ("fetchedAt", "FETCHED_AT"),
 ]
@@ -1002,8 +1243,16 @@ def export_json():
             "reviews": "Apple customer reviews RSS (public, ~500 most recent US reviews)",
             "demand": "Apple autocomplete hints + optional Apple Ads Search Popularity",
         },
-        "unavailableMetrics": ["keyword search volume", "keyword difficulty", "downloads",
-                               "revenue", "true App Store SERP rank"],
+        "unavailableMetrics": ["keyword search volume", "keyword difficulty",
+                               "revenue (needs unobservable free-to-paid conversion)",
+                               "true App Store SERP rank"],
+        "modelledMetrics": {
+            "ratingVelocity": "OBSERVED - Apple rating counts sampled across research runs.",
+            "downloads": ("ESTIMATED RANGE ONLY - ratings/day divided by an assumed or "
+                          "calibrated rating rate. Order of magnitude, not a measurement."),
+        },
+        "ratingRateInForce": {"band": rating_rate_band()[0], "source": rating_rate_band()[1],
+                              "calibrationPairs": rating_rate_band()[2]},
         "provenanceLegend": PROVENANCE,
         "session": SESSION.name,
         "keywords": SESSION.keywords,
@@ -1081,6 +1330,9 @@ class Handler(BaseHTTPRequestHandler):
                 "meta": res.get("meta"),
                 "demand": res.get("demand"),
                 "competition": res.get("competition"),
+                "traction": res.get("traction"),
+                "ratingRate": {"band": rating_rate_band()[0], "source": rating_rate_band()[1],
+                               "pairs": rating_rate_band()[2]},
                 "apps": [dict(a, productSignals=product_signals(a)) for a in apps],
                 "relatedTerms": res.get("relatedTerms"),
                 "opportunity": opportunity(res.get("demand") or {}, res.get("competition") or {},

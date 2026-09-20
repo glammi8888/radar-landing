@@ -181,6 +181,9 @@ const COLS = [
   {k:'medianTop10Ratings',t:'Median top-10 ratings',cls:'num',fmt:v=>v==null?na():Math.round(v).toLocaleString()},
   {k:'top10Under500', t:'Top-10 under 500', cls:'num', fmt:(v,r)=>v==null?na():`${v}/10`},
   {k:'dominant',      t:'Dominant competitor',fmt:v=>v?`<span style="font-size:12px">${esc(v)}</span>`:'<span class="na">none detected</span>'},
+  {k:'tractionPerDay',t:'Ratings/day',       cls:'num', fmt:(v,r)=>v==null?na('Run research to measure'):
+     `${v.toFixed(2)}<span class="chip" style="margin-left:5px">${r.tractionBasis==='current velocity'?'measured':'lifetime'}</span>`},
+  {k:'smallRisers',   t:'Rising',            cls:'num', fmt:v=>v==null?na():(v>0?dot('g')+v:'<span class="na">0</span>')},
   {k:'productFit',    t:'Product fit',      fmt:(v,r)=>rater(r.keyword,'productFit',v)},
   {k:'commercialIntent',t:'Comm. intent',   fmt:(v,r)=>rater(r.keyword,'commercialIntent',v)},
   {k:'opportunity',   t:'Opportunity',      cls:'num opp', fmt:(v,r)=>v==null?na(r.opportunityReason):dot(oppColor(v))+v},
@@ -305,6 +308,43 @@ async function openDetail(kw){
       <b>Volume:</b> ${esc(dem.searchVolumeNote||'')}</div>
   </div>`;
 
+  const tr = d.traction||{};
+  const est = tr.estimatedDownloads;
+  const tractionCard = `<div class="card">
+    <div class="kv">
+      <div><span>Median ratings/day (top 10)</span><b>${tr.medianCurrentRatingsPerDay??tr.medianLifetimeRatingsPerDay??'—'}</b></div>
+      <div><span>Basis</span><b>${tr.hasTimeSeries?'<span class="chip">MEASURED</span>':'<span class="chip">LIFETIME AVG</span>'}</b></div>
+      <div><span>Small apps rising</span><b>${tr.smallRiserCount??'—'}</b></div>
+      <div><span>Accelerating now</span><b>${tr.acceleratingCount??'<span class="na">needs 2 runs</span>'}</b></div>
+    </div>
+    ${!tr.hasTimeSeries?`<div class="why">Only one observation so far, so these are lifetime
+      averages (total ratings ÷ app age). Re-run research in a few days and measured
+      velocity replaces them — that is the number that actually matters.</div>`:''}
+    ${(tr.smallRisers||[]).length?`<div style="margin-top:11px">
+      <b style="font-size:11px;letter-spacing:.05em;color:var(--muted)">SMALL APPS GAINING TRACTION</b>
+      ${tr.smallRisers.map(r=>`<div class="why" style="margin-top:4px">▸ <b>${esc(r.name)}</b> —
+        ${r.ratingCount.toLocaleString()} ratings, ${r.ratingsPerDay}/day
+        <span class="chip">${esc(r.basis)}</span></div>`).join('')}
+      <div class="why" style="margin-top:7px">${esc(tr.explain||'')}</div>
+    </div>`:'<div class="why">No app under 500 ratings is gaining ≥0.3 ratings/day here. Either the niche is quiet, or the incumbents have it locked.</div>'}
+
+    ${est?`<div class="card" style="border-style:dashed;margin:13px 0 0;background:transparent">
+      <div class="kv">
+        <div><span>Est. downloads/day</span><b>${est.perDayLow.toLocaleString()} – ${est.perDayHigh.toLocaleString()}</b></div>
+        <div><span>Est. downloads/month</span><b>${est.perMonthLow.toLocaleString()} – ${est.perMonthHigh.toLocaleString()}</b></div>
+        <div><span>Status</span><b><span class="chip">${est.calibrationPairs?'CALIBRATED':'UNCALIBRATED'}</span></b></div>
+      </div>
+      <div class="why" style="color:var(--yellow)">⚠ <b>ESTIMATE — the weakest number on this page.</b>
+        ${esc(est.health)}. Assumption: ${esc(est.assumption)}
+        (rating rate ${(est.ratingRateBand[0]*100).toFixed(1)}%–${(est.ratingRateBand[1]*100).toFixed(1)}%).</div>
+      <div class="why">${esc(est.warning)} Supply real download/rating pairs in
+        <code>calibration.json</code> to replace the assumption with a fitted rate.</div>
+    </div>`:''}
+    <div class="why" style="margin-top:10px"><b>Revenue is not estimated anywhere in this tool.</b>
+      It would need downloads × free-to-paid conversion × retention, and conversion is
+      unobservable for any app but your own.</div>
+  </div>`;
+
   const appsCard = `<div class="card">
     <div class="why" style="margin:0 0 8px">${esc((d.meta||{}).rankingCaveat||'')}
       Source: ${esc((d.meta||{}).source||'')}. Fetched ${esc((d.meta||{}).fetchedAt||'')}.</div>
@@ -322,6 +362,12 @@ async function openDetail(kw){
             ${a.ageDays!=null?Math.floor(a.ageDays/365*10)/10+'y old':'age unknown'} &middot;
             ${a.daysSinceUpdate!=null?'updated '+a.daysSinceUpdate+'d ago':'update date unknown'}
           </div>
+          ${a.traction?`<div class="d" style="margin-top:3px">
+            ${a.traction.currentRatingsPerDay!=null
+              ? `<b>${a.traction.currentRatingsPerDay}/day measured</b> over ${a.traction.observationDays}d`
+              : `${a.traction.lifetimeRatingsPerDay??'—'}/day lifetime avg`}
+            ${a.traction.momentum!=null?` · momentum ${a.traction.momentum}×${a.traction.accelerating?' <span class="chip">ACCELERATING</span>':''}`:''}
+          </div>`:''}
           ${(ps.weaknessFlags||[]).map(f=>`<div class="flag">▸ ${esc(f)}</div>`).join('')}
           <div style="margin-top:6px">
             ${a.url?`<a href="${esc(a.url)}" target="_blank" rel="noopener">Open listing ↗</a>`:''}
@@ -416,6 +462,7 @@ without needing the keyword in their title. ${esc(opp.caveat||'')}</pre>`:''}
     <h2>${esc(kw)}</h2>
     <div class="sub">United States · Apple App Store (iPhone)${d.error?' · '+esc(d.error):''}</div>
     <div class="step"><h3>Demand</h3>${demandCard}</div>
+    <div class="step"><h3>Traction — who is actually growing</h3>${tractionCard}</div>
     <div class="step"><h3>Opportunity summary</h3>${oppCard}</div>
     <div class="step"><h3>Competitor strength</h3>${compCard}</div>
     <div class="step"><h3>Top apps (${(d.apps||[]).length})</h3>${appsCard}</div>

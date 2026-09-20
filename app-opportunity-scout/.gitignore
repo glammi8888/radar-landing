@@ -4,3 +4,5 @@ asa_credentials.json
 *.pem
 __pycache__/
 *.pyc
+history.json
+calibration.json

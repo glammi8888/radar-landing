@@ -25,9 +25,12 @@ This tool is built so it cannot quietly make things up.
 | **Subjective** | Your own 1–5 rating |
 | **Unavailable** | Needs a paid provider or credentials we don't have |
 
-**Never produced, at all:** keyword search volume, keyword difficulty, downloads,
-revenue, install estimates. These need Sensor Tower / data.ai / AppTweak / Appfigures.
-They render as `UNAVAILABLE`, never as a number. Missing data stays `None` — it never
+**Never produced, at all:** keyword search volume, keyword difficulty, **revenue**.
+These need a paid provider or inputs nobody outside the developer can observe.
+They render as `UNAVAILABLE`, never as a number.
+
+**Downloads appear only as a wide range**, built from measured rating velocity divided
+by one rating-rate assumption you control. See *Traction* below. Missing data stays `None` — it never
 silently becomes `0`.
 
 **The big caveat:** app ordering comes from the **iTunes Search API's relevance engine,
@@ -55,6 +58,73 @@ takes ~4 minutes once; after that it's instant until the cache expires.
 
 - **Subtitle** — not in the Search API. Only on the product page.
 - **In-app purchase tiers** — same. "Free vs paid" we do get.
+
+---
+
+## Traction: the closest honest thing to "downloads"
+
+Three layers, and they are **not** equally trustworthy. The UI keeps them separate.
+
+| Layer | What | Trust |
+|---|---|---|
+| **L1 OBSERVED** | Rating counts sampled across research runs | Apple's own numbers. No model. |
+| **L2 CALCULATED** | Velocity, momentum, risers | Arithmetic on L1. Formula shown. |
+| **L3 ESTIMATED** | Downloads range | One ~10x-uncertain assumption. Order of magnitude only. |
+
+### L1/L2 — velocity and momentum
+
+```
+lifetimeRatingsPerDay = ratingCount / ageDays      # available on run 1
+currentRatingsPerDay  = (newest - oldest) / days   # needs 2+ runs, >=1 day apart
+momentum              = current / lifetime          # >1.2 = accelerating now
+```
+
+`lifetime` is available immediately but blunt: an app that was big years ago and has since
+gone flat still scores well on it. `current` is the real signal, and it needs you to **run
+research twice, a few days apart**. Every run snapshots into `history.json` automatically.
+
+**Small risers** are the money metric, and directly answer "*are smaller apps getting
+traction?*": apps under 500 ratings gaining ≥0.3 ratings/day. Judged on measured velocity
+where available, lifetime average otherwise — so a formerly-hot, now-dead app is correctly
+excluded. That combination (demand proven, no entrenched moat) is the pattern you're hunting.
+
+### L3 — the download range
+
+```
+downloads/day = ratingsPerDay / ratingRate
+```
+
+`ratingRate` — what fraction of users leave a rating — is the whole ballgame, and it varies
+by roughly **10x** across genres and depending on whether an app uses `SKStoreReviewController`.
+So the output is **always a range, never a point**, and the default band (0.5%–5%) is an
+industry rule of thumb, **not measured data**.
+
+> **This adds no ranking information.** Dividing every app by the same constant doesn't change
+> which keyword comes out on top. It only gives you a sense of absolute scale — useful for
+> "is 50/day worth building for?", useless for choosing between keywords.
+
+**Calibrate it** to make it real. Create `calibration.json`:
+
+```json
+{"pairs": [
+  {"label": "my other app", "downloads": 50000, "ratings": 610},
+  {"label": "public disclosure", "downloads": 1000000, "ratings": 14200}
+]}
+```
+
+Pairs can come from your own App Store Connect or any public disclosure. The tool fits the
+rate from them, narrows the band, and flips the status chip to `CALIBRATED`.
+
+### Why there is no revenue number
+
+Revenue needs `downloads × free-to-paid conversion × retention`. Conversion is **unobservable**
+for any app but your own — it isn't in any public Apple endpoint, and it swings from under 1%
+to over 10%. Multiplying an estimated range by an invented conversion rate and an invented
+retention curve is an assumption cubed. The tool shows the observable part (free vs paid) and
+stops there.
+
+If you want revenue signal, the honest route is the **top-grossing chart**: presence on it is
+public, verifiable, and tells you a category monetizes — without pretending to a dollar figure.
 
 ---
 
@@ -156,6 +226,8 @@ rated product fit and commercial intent.
 - **Reviews** — "Analyse reviews" on any app pulls its public reviews and buckets them into
   complaints / requests / praise / missing features / pricing gripes.
 - **Export** — CSV and JSON. **Save session** snapshots into `sessions/`.
+- **Re-run in a few days** — this is what turns lifetime averages into measured velocity.
+  It's the single highest-value habit with this tool.
 
 ### Review mining is keyword matching, not AI
 
@@ -190,4 +262,6 @@ dashboard.html  the UI
 selftest.py     offline pipeline test (no network)
 sessions/       saved research sessions
 cache/          raw Apple responses, 7-day TTL (gitignored)
+history.json    rating-count snapshots over time, powers velocity (gitignored)
+calibration.json  optional ground-truth pairs for the download estimate (gitignored)
 ```
