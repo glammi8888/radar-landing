@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Opportunity Scout</title>
+<style>
+:root{
+  --bg:#fbfbfa; --panel:#fff; --ink:#1a1a18; --muted:#6b6b66; --line:#e6e5e1;
+  --green:#27724a; --yellow:#9a7213; --red:#a33a2c; --accent:#2f5fd0;
+  --chip:#f2f1ee;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141413; --panel:#1c1c1a; --ink:#ecebe6; --muted:#9a9993; --line:#302f2c;
+  --green:#6fbf8b; --yellow:#d6ad4e; --red:#e08272; --accent:#7aa2f7; --chip:#262623;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{font-weight:600;letter-spacing:-.01em;margin:0}
+a{color:var(--accent)}
+.wrap{max-width:1400px;margin:0 auto;padding:28px 16px 80px}
+
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;margin-bottom:6px}
+header h1{font-size:19px}
+.sub{color:var(--muted);font-size:13px}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:20px 0 14px}
+input,select,button,textarea{font:inherit;color:inherit}
+input[type=text],select{background:var(--panel);border:1px solid var(--line);
+  border-radius:7px;padding:7px 10px}
+input[type=text]{min-width:220px}
+button{background:var(--panel);border:1px solid var(--line);border-radius:7px;
+  padding:7px 13px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.primary:disabled{opacity:.45;cursor:default}
+.spacer{flex:1}
+
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--muted);
+  border-radius:7px;padding:11px 14px;font-size:13px;color:var(--muted);margin:14px 0}
+.note b{color:var(--ink);font-weight:600}
+
+table{width:100%;border-collapse:collapse;background:var(--panel);
+  border:1px solid var(--line);border-radius:9px;overflow:hidden;font-size:13.5px}
+th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);padding:11px 10px;border-bottom:1px solid var(--line);
+  cursor:pointer;user-select:none;white-space:nowrap;background:var(--panel);
+  position:sticky;top:0;z-index:2}
+th:hover{color:var(--ink)}
+th .ar{opacity:.4;font-size:9px}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--chip)}
+td.kw{font-weight:550;cursor:pointer}
+td.kw:hover{color:var(--accent)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.na{color:var(--muted);font-size:11.5px;letter-spacing:.02em}
+
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;
+  vertical-align:middle}
+.g{background:var(--green)} .y{background:var(--yellow)} .r{background:var(--red)}
+.n{background:var(--line)}
+
+.chip{display:inline-block;font-size:10.5px;letter-spacing:.03em;padding:2px 6px;
+  border-radius:4px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.rate{display:flex;gap:2px}
+.rate b{width:19px;height:22px;display:grid;place-items:center;border-radius:4px;
+  font-size:11.5px;font-weight:500;cursor:pointer;color:var(--muted);border:1px solid transparent}
+.rate b:hover{background:var(--chip)}
+.rate b.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.opp{font-weight:650;font-variant-numeric:tabular-nums}
+
+/* detail */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
+  display:none;z-index:50;overflow-y:auto}
+.overlay.open{display:block}
+.sheet{max-width:940px;margin:36px auto;background:var(--bg);border:1px solid var(--line);
+  border-radius:12px;padding:24px}
+.sheet h2{font-size:18px;margin-bottom:2px}
+.step{margin:22px 0 0}
+.step>h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+  padding-bottom:7px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px;
+  margin-bottom:10px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kv div span{display:block;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:2px}
+.kv div b{font-weight:600;font-variant-numeric:tabular-nums}
+.why{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.55}
+.app{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.app:last-child{border-bottom:none}
+.app img{width:44px;height:44px;border-radius:10px;flex:none;background:var(--chip)}
+.app .m{flex:1;min-width:0}
+.app .t{font-weight:550;font-size:13.5px}
+.app .d{font-size:12px;color:var(--muted);margin-top:1px}
+.flag{font-size:11.5px;color:var(--yellow);margin-top:4px}
+.bars{display:grid;gap:5px;margin-top:10px}
+.brow{display:grid;grid-template-columns:130px 1fr 42px;gap:9px;align-items:center;font-size:12px}
+.track{height:5px;background:var(--chip);border-radius:3px;overflow:hidden}
+.fill{height:100%;background:var(--muted);border-radius:3px}
+.fill.obj{background:var(--accent)}
+.close{position:sticky;top:0;float:right;background:var(--panel)}
+pre{white-space:pre-wrap;font-size:11.5px;background:var(--chip);padding:9px;border-radius:6px;
+  color:var(--muted);overflow-x:auto;margin:8px 0 0}
+.log{max-height:150px;overflow-y:auto;font-size:11.5px;color:var(--muted);
+  font-family:ui-monospace,monospace}
+.empty{text-align:center;padding:56px 20px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>App Opportunity Scout</h1>
+  <span class="sub">United States &middot; Apple App Store (iPhone)</span>
+  <div class="spacer"></div>
+  <span class="sub" id="asa"></span>
+</header>
+
+<div class="note" id="banner">
+  <b>What this is and isn't.</b> Every number here comes from Apple's public endpoints or is
+  calculated from them with a formula you can read. <b>Search volume, keyword difficulty,
+  downloads and revenue are not shown at all</b> &mdash; they require a paid ASO provider, so
+  they are marked UNAVAILABLE rather than estimated. App order is
+  <b>iTunes Search API relevance, not the live App Store ranking.</b>
+</div>
+
+<div class="bar">
+  <input type="text" id="newkw" placeholder="Add keyword, Enter to submit">
+  <button id="add">Add</button>
+  <input type="text" id="filter" placeholder="Filter keywords">
+  <select id="only">
+    <option value="all">All keywords</option>
+    <option value="done">Researched</option>
+    <option value="todo">Not yet researched</option>
+    <option value="scored">Has opportunity score</option>
+  </select>
+  <div class="spacer"></div>
+  <button id="csv">CSV</button>
+  <button id="jsonx">JSON</button>
+  <button id="save">Save session</button>
+  <button class="primary" id="run">Run research</button>
+</div>
+
+<div class="note" id="progress" style="display:none">
+  <b id="ptitle">Researching…</b>
+  <div class="log" id="plog"></div>
+</div>
+
+<table>
+  <thead><tr id="head"></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<div class="empty" id="empty" style="display:none">No keywords match this filter.</div>
+
+<div class="note" style="margin-top:22px">
+  <b>Reading the table.</b> We are not hunting the lowest competition. We want
+  <b>meaningful demand + beatable competition + weak incumbent products + strong product fit</b>.
+  A keyword with zero competition and zero demand scores zero here by design &mdash; the
+  opportunity score multiplies its four factors, so a weak one is never averaged away.
+  Click any keyword for the full breakdown.
+</div>
+
+</div>
+
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (p,o) => fetch(p,o).then(r=>r.json());
+let STATE = {rows:[],keywords:{}}, sortKey='opportunity', sortDir=-1;
+
+const COLS = [
+  {k:'keyword',       t:'Keyword',          cls:'kw'},
+  {k:'demand',        t:'Demand',           cls:'num', fmt:v=>v==null?na():dot(demandColor(v))+v.toFixed(1)},
+  {k:'demandConfidence',t:'Confidence',     fmt:v=>`<span class="chip">${v||'UNKNOWN'}</span>`},
+  {k:'competition',   t:'Competition',      cls:'num', fmt:(v,r)=>v==null?na():dot(compColor(v))+v},
+  {k:'medianTop10Ratings',t:'Median top-10 ratings',cls:'num',fmt:v=>v==null?na():Math.round(v).toLocaleString()},
+  {k:'top10Under500', t:'Top-10 under 500', cls:'num', fmt:(v,r)=>v==null?na():`${v}/10`},
+  {k:'dominant',      t:'Dominant competitor',fmt:v=>v?`<span style="font-size:12px">${esc(v)}</span>`:'<span class="na">none detected</span>'},
+  {k:'productFit',    t:'Product fit',      fmt:(v,r)=>rater(r.keyword,'productFit',v)},
+  {k:'commercialIntent',t:'Comm. intent',   fmt:(v,r)=>rater(r.keyword,'commercialIntent',v)},
+  {k:'opportunity',   t:'Opportunity',      cls:'num opp', fmt:(v,r)=>v==null?na(r.opportunityReason):dot(oppColor(v))+v},
+];
+
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const na = (title) => `<span class="na" title="${esc(title||'Not available')}">&mdash;</span>`;
+const dot = c => `<span class="dot ${c}"></span>`;
+// Sparse colour: green only for genuinely promising, red only for genuinely blocked.
+const demandColor = v => v>=3 ? 'g' : v>=1.8 ? 'y' : 'r';
+const compColor   = v => v<=38 ? 'g' : v<=65 ? 'y' : 'r';
+const oppColor    = v => v>=30 ? 'g' : v>=15 ? 'y' : 'r';
+
+function rater(kw, field, val){
+  let h = '<div class="rate">';
+  for(let i=1;i<=5;i++) h += `<b class="${val===i?'on':''}" data-kw="${esc(kw)}" data-f="${field}" data-v="${i}">${i}</b>`;
+  return h + '</div>';
+}
+
+function renderHead(){
+  $('#head').innerHTML = COLS.map(c=>{
+    const ar = sortKey===c.k ? `<span class="ar">${sortDir>0?'▲':'▼'}</span>` : '';
+    return `<th data-k="${c.k}">${c.t} ${ar}</th>`;
+  }).join('');
+  $('#head').querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const k = th.dataset.k;
+    if(sortKey===k) sortDir=-sortDir; else {sortKey=k; sortDir=(k==='keyword')?1:-1;}
+    render();
+  });
+}
+
+function visibleRows(){
+  const f = $('#filter').value.trim().toLowerCase(), only = $('#only').value;
+  return STATE.rows.filter(r=>{
+    if(f && !r.keyword.includes(f)) return false;
+    if(only==='done' && !r.researched) return false;
+    if(only==='todo' && r.researched) return false;
+    if(only==='scored' && r.opportunity==null) return false;
+    return true;
+  }).sort((a,b)=>{
+    let x=a[sortKey], y=b[sortKey];
+    if(typeof x==='string'||typeof y==='string') return String(x??'').localeCompare(String(y??''))*sortDir;
+    if(x==null&&y==null) return 0;
+    if(x==null) return 1;            // unknowns always sink, either direction
+    if(y==null) return -1;
+    return (x-y)*sortDir;
+  });
+}
+
+function render(){
+  renderHead();
+  const rows = visibleRows();
+  $('#empty').style.display = rows.length ? 'none':'block';
+  $('#rows').innerHTML = rows.map(r=>'<tr>'+COLS.map(c=>{
+    const v = r[c.k];
+    const inner = c.fmt ? c.fmt(v,r) : (v==null?na():esc(v));
+    return `<td class="${c.cls||''}" ${c.cls==='kw'?`data-open="${esc(r.keyword)}"`:''}>${inner}</td>`;
+  }).join('')+'</tr>').join('');
+
+  $('#rows').querySelectorAll('[data-open]').forEach(td=>td.onclick=()=>openDetail(td.dataset.open));
+  $('#rows').querySelectorAll('.rate b').forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();
+    const cur = STATE.keywords[b.dataset.kw]?.[b.dataset.f];
+    const val = cur===+b.dataset.v ? null : +b.dataset.v;   // click again to clear
+    await api('/api/rate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({keyword:b.dataset.kw,field:b.dataset.f,value:val})});
+    await load();
+  });
+}
+
+async function load(){
+  STATE = await api('/api/state');
+  const a = STATE.asa||{};
+  $('#asa').innerHTML = `Apple Ads demand data: <span class="chip">${esc(a.status||'?')}</span>`;
+  $('#asa').title = (a.whatYouNeed||[]).join('\n');
+  render();
+  pollProgress();
+}
+
+async function pollProgress(){
+  const p = await api('/api/progress');
+  const box = $('#progress');
+  if(p.running){
+    box.style.display='block';
+    $('#ptitle').textContent = `Researching ${p.done}/${p.total} — ${p.current}`;
+    $('#plog').innerHTML = (p.log||[]).slice(-40).reverse().map(esc).join('<br>');
+    $('#run').disabled = true;
+    setTimeout(pollProgress, 1200);
+  } else {
+    $('#run').disabled = false;
+    if(p.finishedAt){
+      $('#ptitle').textContent = `Finished ${p.total} keywords.`;
+      $('#plog').innerHTML = (p.log||[]).slice(-40).reverse().map(esc).join('<br>');
+      box.style.display='block';
+    } else box.style.display='none';
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Detail view: KEYWORD -> DEMAND -> TOP APPS -> COMPETITOR STRENGTH
+ *              -> PRODUCT ANALYSIS -> REVIEWS -> OPPORTUNITY SUMMARY
+ * ------------------------------------------------------------------ */
+async function openDetail(kw){
+  $('#overlay').classList.add('open');
+  $('#sheet').innerHTML = '<div class="empty">Loading…</div>';
+  const d = await api('/api/keyword?kw='+encodeURIComponent(kw));
+  if(d.error){
+    $('#sheet').innerHTML = `<button class="close" onclick="closeDetail()">Close</button>
+      <h2>${esc(kw)}</h2><div class="note">${esc(d.error)} Run research first.</div>`;
+    return;
+  }
+  const c = d.competition||{}, s = c.strength||{}, dem = d.demand||{}, opp = d.opportunity||{};
+
+  const demandCard = `<div class="card">
+    <div class="kv">
+      <div><span>Demand band</span><b>${dem.score==null?'UNKNOWN':dem.score.toFixed(1)+' / 5'}</b></div>
+      <div><span>Confidence</span><b>${esc(dem.confidence||'UNKNOWN')}</b></div>
+      <div><span>Search volume</span><b class="na">UNAVAILABLE</b></div>
+    </div>
+    <div class="why"><b>Signal:</b> ${esc(dem.signal||'none')}<br>
+      <b>Why this confidence:</b> ${esc(dem.why||'')}<br>
+      <b>Volume:</b> ${esc(dem.searchVolumeNote||'')}</div>
+  </div>`;
+
+  const appsCard = `<div class="card">
+    <div class="why" style="margin:0 0 8px">${esc((d.meta||{}).rankingCaveat||'')}
+      Source: ${esc((d.meta||{}).source||'')}. Fetched ${esc((d.meta||{}).fetchedAt||'')}.</div>
+    ${(d.apps||[]).map(a=>{
+      const ps = a.productSignals||{};
+      return `<div class="app">
+        <img src="${esc(a.icon||'')}" alt="" onerror="this.style.visibility='hidden'">
+        <div class="m">
+          <div class="t">${a.position}. ${esc(a.name||'(no name)')}
+            ${a.exactMatchInTitle?'<span class="chip">EXACT IN TITLE</span>':''}</div>
+          <div class="d">${esc(a.developer||'unknown dev')} &middot; ${esc(a.category||'—')} &middot;
+            ${a.rating!=null?a.rating.toFixed(1)+'★':'no rating'} &middot;
+            ${a.ratingCount!=null?a.ratingCount.toLocaleString()+' ratings':'<span class="na">rating count unavailable</span>'} &middot;
+            ${esc(a.formattedPrice||'—')} &middot;
+            ${a.ageDays!=null?Math.floor(a.ageDays/365*10)/10+'y old':'age unknown'} &middot;
+            ${a.daysSinceUpdate!=null?'updated '+a.daysSinceUpdate+'d ago':'update date unknown'}
+          </div>
+          ${(ps.weaknessFlags||[]).map(f=>`<div class="flag">▸ ${esc(f)}</div>`).join('')}
+          <div style="margin-top:6px">
+            ${a.url?`<a href="${esc(a.url)}" target="_blank" rel="noopener">Open listing ↗</a>`:''}
+            ${a.trackId?` &middot; <a href="#" onclick="loadReviews('${esc(kw)}',${a.trackId},this);return false">Analyse reviews</a>`:''}
+            &middot; <span class="na">subtitle: not in public API</span>
+          </div>
+          <div class="revbox"></div>
+        </div>
+      </div>`;
+    }).join('') || '<div class="na">No apps returned.</div>'}
+  </div>`;
+
+  const compRows = s.components ? Object.entries(s.components).map(([k,v])=>`
+    <div class="brow"><span>${esc(k.replace(/([A-Z])/g,' $1').toLowerCase())}</span>
+      <div class="track"><div class="fill obj" style="width:${v/25*100}%"></div></div>
+      <span class="num">${v}</span></div>`).join('') : '';
+
+  const compCard = `<div class="card">
+    <div class="kv">
+      <div><span>Competitor strength</span><b>${s.score??'—'} / 100</b></div>
+      <div><span>Field</span><b>${s.band?`<span class="chip">${s.band}</span>`:'—'}</b></div>
+      <div><span>Median top-10 ratings</span><b>${c.medianRatingCount!=null?Math.round(c.medianRatingCount).toLocaleString():'—'}</b></div>
+      <div><span>Average</span><b>${c.avgRatingCount!=null?Math.round(c.avgRatingCount).toLocaleString():'—'}</b></div>
+      <div><span>Min / Max</span><b>${c.minRatingCount!=null?c.minRatingCount.toLocaleString():'—'} / ${c.maxRatingCount!=null?c.maxRatingCount.toLocaleString():'—'}</b></div>
+      <div><span>Under 100</span><b>${c.under100??'—'}</b></div>
+      <div><span>Under 500</span><b>${c.under500??'—'} (${c.pctUnder500??'—'}%)</b></div>
+      <div><span>Under 1,000</span><b>${c.under1000??'—'}</b></div>
+      <div><span>Over 10,000</span><b>${c.over10000??'—'}</b></div>
+      <div><span>Exact kw in title</span><b>${c.exactInTitle??'—'}</b></div>
+      <div><span>Kw in title (any word)</span><b>${c.inTitle??'—'}</b></div>
+      <div><span>Average stars</span><b>${c.avgStars??'—'}</b></div>
+      <div><span>Updated in 180d</span><b>${c.freshlyUpdated??'—'}/${c.sampleSize??'—'}</b></div>
+    </div>
+    ${c.dominantIncumbent?`<div class="why"><b>Dominant incumbent:</b>
+      ${esc(c.dominantIncumbent.name)} at ${c.dominantIncumbent.ratingCount.toLocaleString()} ratings
+      — ${c.dominantIncumbent.multipleOfFieldMedian}× the median of the rest of the field.</div>`
+      :'<div class="why">No dominant incumbent detected (no app both exceeds 50,000 ratings and dwarfs the field).</div>'}
+    <div class="bars">${compRows}</div>
+    ${s.formula?`<pre>Competitor strength = ${esc(s.formula)}
+
+This is NOT an industry-standard ASO Keyword Difficulty score. It is a
+transparent sum of four observable components, each capped at 25 points.</pre>`:''}
+    ${c.ratingCountsMissing?`<div class="why">${c.ratingCountsMissing} of ${c.sampleSize} apps returned no rating count and were excluded from these stats.</div>`:''}
+  </div>`;
+
+  const weak = (d.apps||[]).filter(a=>(a.productSignals||{}).weaknessCount>0)
+                           .sort((a,b)=>b.productSignals.weaknessCount-a.productSignals.weaknessCount);
+  const productCard = `<div class="card">
+    <div class="why" style="margin:0 0 10px">Objective listing signals only. Visual quality,
+      positioning clarity, sophistication and differentiation need your eyes — open the listings above.</div>
+    ${weak.length?weak.map(a=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)">
+      <b style="font-size:13px">${esc(a.name)}</b>
+      <span class="chip">${a.productSignals.weaknessCount} weakness${a.productSignals.weaknessCount>1?'es':''}</span>
+      ${a.productSignals.weaknessFlags.map(f=>`<div class="flag">▸ ${esc(f)}</div>`).join('')}
+      <div class="why">${a.screenshotCount} screenshots · ${a.descriptionLength??'?'} char description ·
+        ${a.languageCount??'?'} languages</div>
+    </div>`).join(''):'<div class="na">No listing weaknesses detected in the top results — this field is well executed.</div>'}
+  </div>`;
+
+  const oppBars = opp.factors ? Object.entries(opp.factors).map(([k,f])=>`
+    <div class="brow"><span>${esc(k.replace(/([A-Z])/g,' $1').toLowerCase())}
+      <span class="chip">${f.kind}</span></span>
+      <div class="track"><div class="fill ${f.kind==='objective'?'obj':''}" style="width:${Math.max(0,f.norm*100)}%"></div></div>
+      <span class="num">${f.raw==null?'—':f.raw}</span></div>`).join('') : '';
+
+  const oppCard = `<div class="card">
+    <div class="kv">
+      <div><span>Opportunity</span><b style="font-size:19px">${opp.score??'—'}</b></div>
+      <div><span>Verdict</span><b>${opp.band?`<span class="chip">${opp.band}</span>`:'<span class="na">withheld</span>'}</b></div>
+      <div><span>Demand confidence</span><b>${esc(opp.confidence||dem.confidence||'UNKNOWN')}</b></div>
+    </div>
+    ${opp.bandGate?`<div class="why" style="color:var(--yellow)">⚠ ${esc(opp.bandGate)}</div>`:''}
+    ${opp.reason?`<div class="why">${esc(opp.reason)}</div>`:''}
+    <div class="bars">${oppBars}</div>
+    ${opp.formula?`<pre>${esc(opp.formula)}
+
+Blue bars are objective (from Apple data). Grey bars are your own subjective 1-5
+ratings. Beatability is NOT (100 - competitor strength): it weights rating mass
+and incumbent dominance far more heavily, because brands rank on authority
+without needing the keyword in their title. ${esc(opp.caveat||'')}</pre>`:''}
+  </div>`;
+
+  const related = (d.relatedTerms||[]).length ? `<div class="card">
+    <div class="why" style="margin:0 0 8px">Apple's own autocomplete suggestions for this stem —
+      real queries, useful as new keyword candidates.</div>
+    ${d.relatedTerms.map(t=>`<span class="chip" style="cursor:pointer;margin:2px"
+      onclick="addKeyword('${esc(t).replace(/'/g,"\\'")}')">+ ${esc(t)}</span>`).join(' ')}
+  </div>` : '';
+
+  $('#sheet').innerHTML = `
+    <button class="close" onclick="closeDetail()">Close</button>
+    <h2>${esc(kw)}</h2>
+    <div class="sub">United States · Apple App Store (iPhone)${d.error?' · '+esc(d.error):''}</div>
+    <div class="step"><h3>Demand</h3>${demandCard}</div>
+    <div class="step"><h3>Opportunity summary</h3>${oppCard}</div>
+    <div class="step"><h3>Competitor strength</h3>${compCard}</div>
+    <div class="step"><h3>Top apps (${(d.apps||[]).length})</h3>${appsCard}</div>
+    <div class="step"><h3>Product analysis — weak listings</h3>${productCard}</div>
+    ${related?`<div class="step"><h3>Related search terms</h3>${related}</div>`:''}
+  `;
+  window.scrollTo(0,0);
+}
+
+function closeDetail(){ $('#overlay').classList.remove('open'); load(); }
+
+async function addKeyword(kw){
+  await api('/api/keywords/add',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({keywords:[kw]})});
+  await load();
+  alert(`Added "${kw}". Run research to populate it.`);
+}
+
+async function loadReviews(kw, trackId, el){
+  const box = el.closest('.m').querySelector('.revbox');
+  box.innerHTML = '<div class="na" style="padding:8px 0">Fetching reviews…</div>';
+  const r = await api('/api/reviews',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({keyword:kw,trackId,pages:3})});
+  if(r.error){ box.innerHTML = `<div class="na" style="padding:8px 0">${esc(r.error)}</div>`; return; }
+  const a = r.analysis;
+  box.innerHTML = `<div class="card" style="margin-top:9px">
+    <div class="kv">
+      <div><span>Reviews analysed</span><b>${a.reviewsAnalysed}</b></div>
+      <div><span>1-2 star share</span><b>${a.negativeShare!=null?a.negativeShare+'%':'—'}</b></div>
+    </div>
+    ${Object.entries(a.themes).filter(([,v])=>v.count).map(([name,v])=>`
+      <div style="margin-top:11px">
+        <b style="font-size:11px;letter-spacing:.05em;color:var(--muted)">${esc(name)} — ${v.count}</b>
+        ${v.samples.map(s=>`<div class="why" style="margin-top:5px">
+          ${s.rating}★ <span class="chip">matched "${esc(s.matched)}"</span>
+          ${esc(s.excerpt)}${s.excerpt.length>=320?'…':''}</div>`).join('')}
+      </div>`).join('') || '<div class="na">No themed matches in this sample.</div>'}
+    <div class="why" style="margin-top:12px"><b>Method:</b> ${esc(a.method)}</div>
+    <div class="why"><b>Coverage:</b> ${esc(a.coverageCaveat)}</div>
+  </div>`;
+}
+
+/* ---- wiring ---- */
+$('#overlay').onclick = e => { if(e.target.id==='overlay') closeDetail(); };
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeDetail(); });
+$('#filter').oninput = render;
+$('#only').onchange = render;
+
+$('#add').onclick = async () => {
+  const raw = $('#newkw').value.trim();
+  if(!raw) return;
+  const list = raw.split(/[\n,]/).map(s=>s.trim()).filter(Boolean);
+  await api('/api/keywords/add',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({keywords:list})});
+  $('#newkw').value=''; await load();
+};
+$('#newkw').onkeydown = e => { if(e.key==='Enter') $('#add').click(); };
+
+$('#run').onclick = async () => {
+  const rows = visibleRows().map(r=>r.keyword);
+  const label = rows.length===STATE.rows.length ? `all ${rows.length} keywords`
+                                                : `${rows.length} filtered keywords`;
+  const secs = Math.round(rows.length*7);
+  if(!confirm(`Research ${label}?\n\nApple limits us to ~20 requests/minute, so this takes about `
+    +`${Math.ceil(secs/60)} min. Cached keywords return instantly.`)) return;
+  const r = await api('/api/research',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({keywords:rows})});
+  if(r.error) return alert(r.error);
+  pollProgress();
+};
+
+$('#csv').onclick   = () => location.href='/api/export.csv';
+$('#jsonx').onclick = () => location.href='/api/export.json';
+$('#save').onclick  = async () => {
+  const name = prompt('Save this research session as:', STATE.session||'default');
+  if(!name) return;
+  const r = await api('/api/session/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name})});
+  alert('Saved to sessions/'+r.saved);
+};
+
+/* delete keyword: shift-click its cell */
+document.addEventListener('click', async e => {
+  const td = e.target.closest('td.kw');
+  if(td && e.shiftKey){
+    e.stopPropagation();
+    const kw = td.dataset.open;
+    if(confirm(`Delete "${kw}" from this session?`)){
+      await api('/api/keywords/remove',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({keywords:[kw]})});
+      await load();
+    }
+  }
+}, true);
+
+load();
+</script>
+</body>
+</html>
