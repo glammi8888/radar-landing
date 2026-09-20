@@ -259,6 +259,92 @@ def normalise_app(raw, position, keyword):
 # ---------------------------------------------------------------------------
 # PHASE 3 - Competition analysis. Descriptive stats only, all from verified data.
 # ---------------------------------------------------------------------------
+
+def percentile(sorted_vals, p):
+    """Linear-interpolated percentile. sorted_vals must be ascending."""
+    if not sorted_vals:
+        return None
+    if len(sorted_vals) == 1:
+        return sorted_vals[0]
+    k = (len(sorted_vals) - 1) * p
+    lo, hi = math.floor(k), math.ceil(k)
+    if lo == hi:
+        return sorted_vals[int(k)]
+    return sorted_vals[lo] * (hi - k) + sorted_vals[hi] * (k - lo)
+
+
+def spearman(xs, ys):
+    """Rank correlation. Descriptive only - never feeds a score."""
+    n = len(xs)
+    if n < 3:
+        return None
+
+    def ranks(v):
+        order = sorted(range(n), key=lambda i: v[i])
+        out = [0] * n
+        for pos, i in enumerate(order):
+            out[i] = pos + 1
+        return out
+
+    rx, ry = ranks(xs), ranks(ys)
+    mx, my = sum(rx) / n, sum(ry) / n
+    num = sum((rx[i] - mx) * (ry[i] - my) for i in range(n))
+    den = (sum((rx[i] - mx) ** 2 for i in range(n))
+           * sum((ry[i] - my) ** 2 for i in range(n))) ** 0.5
+    return round(num / den, 3) if den else None
+
+
+def penetration(top10):
+    """
+    THE CENTRAL QUESTION: can relatively small / new apps rank for this keyword?
+
+    Answered from the observed SERP distribution, not from a pass/fail threshold.
+    Rating count is used here strictly as a proxy for COMPETITOR TRACTION. It is
+    not keyword difficulty, not downloads, and not search demand.
+
+    The key number is the ENTRY BAR - the smallest rating count that still holds
+    a top-10 slot. You do not have to match the median to rank; you have to clear
+    the floor. A SERP of 50k / 8k / 700 / 420 / 180 / 95 has an entry bar of 95,
+    and that is the honest read of what it takes to appear.
+    """
+    pairs = [(a["position"], a["ratingCount"]) for a in top10
+             if isinstance(a.get("ratingCount"), (int, float))]
+    if not pairs:
+        return None
+    counts = sorted(c for _, c in pairs)
+    med = statistics.median(counts)
+
+    def best_position_under(limit):
+        hits = [pos for pos, c in pairs if c < limit]
+        return min(hits) if hits else None
+
+    below_median = [(pos, c) for pos, c in pairs if c < med]
+    best_below_median = min((pos for pos, _ in below_median), default=None)
+    n = len(pairs)
+
+    return {
+        "ladder": [{"position": pos, "ratingCount": c} for pos, c in sorted(pairs)],
+        "entryBarMin": counts[0],
+        "entryBarP25": round(percentile(counts, 0.25), 1),
+        "fieldMedian": med,
+        # "positions occupied by smaller apps", at several sizes, no gating
+        "bestPositionUnder100": best_position_under(100),
+        "bestPositionUnder500": best_position_under(500),
+        "bestPositionUnder1000": best_position_under(1000),
+        "bestPositionUnder10000": best_position_under(10000),
+        "positionsUnder500": [pos for pos, c in sorted(pairs) if c < 500],
+        "positionsUnder1000": [pos for pos, c in sorted(pairs) if c < 1000],
+        "belowMedianPositions": sorted(pos for pos, _ in below_median),
+        "bestPositionBelowMedian": best_below_median,
+        "inTop5Under1000": sum(1 for pos, c in pairs if pos <= 5 and c < 1000),
+        "sizeRankCorrelation": spearman([pos for pos, _ in pairs], [-c for _, c in pairs]),
+        "sampleSize": n,
+        "note": ("sizeRankCorrelation near +1 means the SERP is strictly sorted big-to-small, "
+                 "so position tracks size. Near 0 means size does not determine rank. "
+                 "Descriptive only - it never feeds a score."),
+    }
+
+
 def analyse_competition(apps, keyword):
     top10 = apps[:10]
     counts = [a["ratingCount"] for a in top10 if isinstance(a["ratingCount"], (int, float))]
@@ -274,7 +360,7 @@ def analyse_competition(apps, keyword):
             "minRatingCount": None, "maxRatingCount": None,
             "under100": None, "under500": None, "under1000": None, "over10000": None,
             "pctUnder500": None, "exactInTitle": None, "inTitle": None,
-            "avgStars": None, "dominantIncumbent": None,
+            "avgStars": None, "dominantIncumbent": None, "penetration": None,
             "freshlyUpdated": None, "strength": None,
         }
 
@@ -285,6 +371,10 @@ def analyse_competition(apps, keyword):
     maximum = max(counts)
 
     # Dominant incumbent: an app whose rating mass dwarfs the field.
+    # DESCRIPTIVE ONLY. This deliberately does NOT penalise the score: a big app
+    # at #1 does not stop you ranking #3-#6, and excluding a keyword because a
+    # large competitor exists throws away good opportunities. Thresholds below
+    # are labelling heuristics, not evidence-backed cutoffs.
     dominant = None
     others = sorted(counts, reverse=True)[1:]
     median_others = statistics.median(others) if others else 0
@@ -295,6 +385,9 @@ def analyse_competition(apps, keyword):
             "name": top_app["name"],
             "ratingCount": top_app["ratingCount"],
             "multipleOfFieldMedian": round(maximum / max(median_others, 1), 1),
+            "scoringImpact": "none - descriptive flag only",
+            "thresholdCaveat": ("Flagged at >=50,000 ratings AND >=10x the rest of the field. "
+                                "Those cutoffs are labelling conventions, not evidence."),
         }
 
     fresh = sum(1 for a in top10
@@ -318,6 +411,7 @@ def analyse_competition(apps, keyword):
         "freshlyUpdated": fresh,
         "dominantIncumbent": dominant,
     }
+    comp["penetration"] = penetration(top10)
     comp["strength"] = competitor_strength(comp)
     return comp
 
@@ -391,6 +485,11 @@ SNAPSHOT_MIN_GAP = 6 * 3600     # don't record twice within 6h
 # whether the app uses SKStoreReviewController. The band is wide on purpose.
 # Supply calibration.json to replace it with something real.
 DEFAULT_RATING_RATE_BAND = (0.005, 0.05)      # 0.5% - 5% of users leave a rating
+
+# Ceiling for "small riser". A starting point, not a law - the dashboard lets you
+# move it, and growthRanking below always carries every app regardless of size.
+DEFAULT_RISER_MAX_RATINGS = 500
+RISER_MIN_RATE = 0.3                           # ratings/day to count as rising
 
 
 def load_history():
@@ -539,7 +638,7 @@ def traction(app, hist):
     return out
 
 
-def traction_summary(apps, hist):
+def traction_summary(apps, hist, riser_max=DEFAULT_RISER_MAX_RATINGS):
     """
     Keyword-level rollup. Answers the brief's requirement #3 directly:
     are SMALLER apps here actually gaining traction?
@@ -564,15 +663,22 @@ def traction_summary(apps, hist):
         return (cur_rate, "current") if cur_rate is not None \
             else (t.get("lifetimeRatingsPerDay"), "lifetime")
 
-    risers = []
+    # Every app with a measurable rate, biggest grower first, no size filter.
+    # The dashboard filters this client-side so moving the threshold is instant.
+    ranking = []
     for a in top10:
-        rc = a.get("ratingCount")
-        if not isinstance(rc, (int, float)) or rc >= 500:
-            continue
         rate, basis = best_rate(a)
-        if (rate or 0) >= 0.3:
-            risers.append({"name": a["name"], "ratingCount": rc,
-                           "ratingsPerDay": rate, "basis": basis})
+        if rate is None:
+            continue
+        ranking.append({"name": a["name"], "ratingCount": a.get("ratingCount"),
+                        "ratingsPerDay": rate, "basis": basis,
+                        "momentum": a["traction"].get("momentum"),
+                        "accelerating": a["traction"].get("accelerating")})
+    ranking.sort(key=lambda r: r["ratingsPerDay"], reverse=True)
+
+    risers = [r for r in ranking
+              if isinstance(r["ratingCount"], (int, float))
+              and r["ratingCount"] < riser_max and r["ratingsPerDay"] >= RISER_MIN_RATE]
 
     # Prefer measured current velocity over the lifetime average for the
     # download estimate too - it reflects the market now, not its whole history.
@@ -584,10 +690,13 @@ def traction_summary(apps, hist):
         "acceleratingCount": len(accel) if cur else None,
         "smallRisers": risers,
         "smallRiserCount": len(risers),
+        "growthRanking": ranking,
+        "riserMaxRatings": riser_max,
+        "riserMinRate": RISER_MIN_RATE,
         "hasTimeSeries": bool(cur),
         "estimateBasis": "current velocity" if cur else "lifetime average",
         "estimatedDownloads": estimate_downloads(headline_rate),
-        "explain": ("smallRisers are apps under 500 ratings gaining >=0.3 ratings/day, judged on "
+        "explain": (f"smallRisers are apps under {riser_max:,} ratings gaining >={RISER_MIN_RATE} ratings/day, judged on "
                     "measured current velocity where available and lifetime average otherwise. "
                     "That is the pattern worth chasing: demand proven, no entrenched moat."),
     }
@@ -708,82 +817,131 @@ def assess_demand(keyword, hints, hints_error, comp, asa_popularity=None):
 # ---------------------------------------------------------------------------
 # PHASE 6 - Opportunity model. Components stay visible; nothing is hidden.
 # ---------------------------------------------------------------------------
-def beatability(comp):
+def rank_evidence(comp):
     """
-    BEATABILITY 0-1: can a new, well-made app realistically break into this top 10?
+    EVIDENCE SMALLER APPS CAN RANK  (0-1). Replaces the old "beatability".
 
-    This is deliberately NOT (100 - competitorStrength). Competitor strength
-    DESCRIBES the field; beatability asks whether you can ENTER it, and those
-    weight differently. A field of billion-dollar brands has LOW keyword
-    targeting (they rank on authority, not on stuffing the term in their title),
-    which would make the descriptive score look mild while the field is in fact
-    unenterable. So beatability is driven by the gap you must actually close:
+    Two observed quantities, no pass/fail thresholds, no penalty for the mere
+    existence of a large competitor:
 
-      massFactor  = 1 - log10(medianTop10 + 1) / log10(50000)   floored at 0.03
-                    -> the rating mass you must match to sit beside them
-      dominance   = 0.35 if a dominant incumbent exists, else 1.0
-      targeting   = 1 - 0.3 * (exact + 0.5*partial) / n
-                    -> mild: heavily optimised titles mean a contested term
+      entryFactor  - how low is the FLOOR of the top 10?
+                     Built on the 25th percentile of rating counts, not the
+                     median. You do not need to match the median to appear; you
+                     need to clear the bar the weakest ranked apps cleared.
+                       1 - log10(entryBarP25 + 1) / log10(50000)
 
-      beatability = massFactor * dominance * targeting
+      reachFactor  - how HIGH can a below-median app get?
+                     If below-median apps reach #2-#4, size is not gating rank.
+                     If they only appear at #9-#10, the SERP is stratified.
+                       1 - (bestPositionBelowMedian - 1) / sampleSize
+
+    rankEvidence = entryFactor * reachFactor
+
+    A dominant incumbent does NOT reduce this. A 50,000-rating app at #1 with
+    95-, 180- and 420-rating apps at #4-#6 is strong evidence that small apps
+    rank here - which is the opposite of a reason to walk away.
+
+    Rating count is a proxy for competitor TRACTION only. It is not keyword
+    difficulty, not downloads, not search demand.
     """
-    if comp.get("medianRatingCount") is None:
+    pen = comp.get("penetration") if comp else None
+    if not pen:
         return None
-    median = comp["medianRatingCount"]
-    mass = 1 - (math.log10(median + 1) / math.log10(50000))
-    mass = max(0.03, min(mass, 1.0))
-    dominance = 0.35 if comp.get("dominantIncumbent") else 1.0
-    n = max(comp.get("sampleSize") or 10, 1)
-    targeting = 1 - 0.3 * min((comp.get("exactInTitle", 0) + 0.5 * comp.get("inTitle", 0)) / n, 1.0)
-    value = mass * dominance * targeting
+
+    entry = 1 - (math.log10(pen["entryBarP25"] + 1) / math.log10(50000))
+    entry = max(0.03, min(entry, 1.0))
+
+    best = pen.get("bestPositionBelowMedian")
+    n = max(pen.get("sampleSize") or 10, 1)
+    reach = 1.0 if best is None else max(0.15, 1 - (best - 1) / n)
+
+    value = entry * reach
     return {
         "value": round(value, 4),
-        "components": {"massFactor": round(mass, 3),
-                       "dominancePenalty": dominance,
-                       "targetingFactor": round(targeting, 3)},
-        "explain": (f"Median top-10 has {median:,.0f} ratings to match"
-                    + (" and a dominant incumbent sits above the field"
-                       if comp.get("dominantIncumbent") else " with no dominant incumbent")
-                    + "."),
+        "components": {"entryFactor": round(entry, 3), "reachFactor": round(reach, 3)},
+        "entryBarP25": pen["entryBarP25"],
+        "entryBarMin": pen["entryBarMin"],
+        "bestPositionBelowMedian": best,
+        "explain": (f"The weakest ranked apps sit around {pen['entryBarP25']:,.0f} ratings "
+                    f"(lowest on the page: {pen['entryBarMin']:,.0f})"
+                    + (f", and a below-median app reaches #{best}." if best
+                       else ", and no app sits below the field median.")),
+        "dominantIncumbentImpact": "none - large competitors do not reduce this score",
         "provenance": "calculated",
     }
 
 
-def opportunity(demand, comp, product_fit, commercial_intent):
+def listing_weakness(apps):
     """
-    OPPORTUNITY = DEMAND x BEATABILITY x COMMERCIAL INTENT x PRODUCT FIT, x100.
-
-    A straight product, exactly as specified - NOT a mean. A mean would let a
-    strong showing on three factors paper over a fatal fourth. The product is
-    unforgiving on purpose:
-
-        zero demand      -> zero, however empty the field is
-        brand-dominated  -> beatability collapses, so the score collapses
-
-    Typical real range is 10-45; 90+ requires everything to line up. Use it to
-    RANK candidates against each other, not as a measurement of anything.
-    Returns None whenever demand or competition is unknown - gaps are never filled.
+    PRODUCT / LISTING WEAKNESS across the top 10. Weak incumbent listings make a
+    space easier to enter, so this MODIFIES the opportunity rather than gating it.
+    Deliberately a narrow band (0.85-1.25): it tilts, it cannot collapse a score.
     """
-    beat = beatability(comp) if comp else None
-    if demand.get("score") is None or beat is None:
+    top10 = apps[:10]
+    if not top10:
+        return None
+    flags = [len(product_signals(a)["weaknessFlags"]) for a in top10]
+    weak_share = sum(1 for f in flags if f) / len(flags)
+    modifier = 0.85 + 0.4 * weak_share
+    return {
+        "appsWithWeakness": sum(1 for f in flags if f),
+        "sampleSize": len(flags),
+        "weakShare": round(weak_share, 2),
+        "avgFlagsPerApp": round(statistics.mean(flags), 2),
+        "modifier": round(modifier, 3),
+        "formula": "0.85 + 0.4 * (share of top 10 with >=1 listing weakness)",
+        "provenance": "calculated",
+    }
+
+
+def opportunity(demand, comp, product_fit, commercial_intent, apps=None):
+    """
+    OPPORTUNITY = 100 * [ DEMAND x RANK EVIDENCE x PRODUCT FIT x COMMERCIAL INTENT ]
+                        x listingWeaknessModifier
+
+    Four gates, multiplied, because each can independently kill a candidate:
+      * no demand           -> nothing to win
+      * small apps can't rank -> you cannot get in
+      * poor product fit    -> not your market
+      * no commercial intent -> cannot monetise it
+
+    Listing weakness is a MODIFIER (0.85-1.25), not a gate: weak incumbent
+    listings make entry easier but their absence does not disqualify a keyword.
+
+    Competitor strength is NOT a separate factor here - it would double-count,
+    since entry bar and reach already express it. It is reported alongside as
+    descriptive context.
+
+    Withheld whenever demand or SERP distribution is unknown. Gaps are never filled.
+    """
+    ev = rank_evidence(comp) if comp else None
+    if demand.get("score") is None or ev is None:
         return {
             "score": None,
             "reason": "Withheld: " + ("no demand signal." if demand.get("score") is None
-                                      else "no competition data."),
+                                      else "no usable SERP rating distribution."),
             "factors": None,
         }
 
+    weak = listing_weakness(apps) if apps else None
     factors = {
-        "demand":           {"raw": demand["score"], "norm": demand["score"] / 5,
-                             "kind": "objective", "note": demand.get("signal")},
-        "beatability":      {"raw": round(beat["value"] * 5, 2), "norm": beat["value"],
-                             "kind": "objective", "note": beat["explain"],
-                             "components": beat["components"]},
-        "productFit":       {"raw": product_fit, "norm": (product_fit or 0) / 5,
-                             "kind": "subjective", "note": "Your rating."},
+        "demand": {"raw": demand["score"], "norm": demand["score"] / 5,
+                   "kind": "objective", "role": "gate", "note": demand.get("signal")},
+        "smallAppsCanRank": {"raw": round(ev["value"] * 5, 2), "norm": ev["value"],
+                             "kind": "objective", "role": "gate", "note": ev["explain"],
+                             "components": ev["components"]},
+        "productFit": {"raw": product_fit, "norm": (product_fit or 0) / 5,
+                       "kind": "subjective", "role": "gate", "note": "Your rating."},
         "commercialIntent": {"raw": commercial_intent, "norm": (commercial_intent or 0) / 5,
-                             "kind": "subjective", "note": "Your rating."},
+                             "kind": "subjective", "role": "gate", "note": "Your rating."},
     }
+    if weak:
+        factors["listingWeakness"] = {
+            "raw": f"{weak['appsWithWeakness']}/{weak['sampleSize']} weak listings",
+            "norm": weak["modifier"], "kind": "objective", "role": "modifier",
+            "note": weak["formula"],
+        }
+
     if product_fit is None or commercial_intent is None:
         return {
             "score": None,
@@ -791,14 +949,13 @@ def opportunity(demand, comp, product_fit, commercial_intent):
             "factors": factors,
         }
 
-    product = 1.0
-    for f in factors.values():
-        product *= max(f["norm"], 0.0)
-    score = round(product * 100)
+    core = 1.0
+    for key in ("demand", "smallAppsCanRank", "productFit", "commercialIntent"):
+        core *= max(factors[key]["norm"], 0.0)
+    modifier = weak["modifier"] if weak else 1.0
+    score = round(min(core * modifier, 1.0) * 100)
 
     band = "STRONG" if score >= 30 else ("WORTH A LOOK" if score >= 15 else "WEAK")
-    # Confidence gate: a weak demand signal must not be promoted to STRONG by
-    # your own subjective ratings. Two 5s should never manufacture a hot lead.
     gated = None
     if band == "STRONG" and demand["confidence"] in ("LOW", "UNKNOWN"):
         band, gated = "WORTH A LOOK", ("Capped below STRONG: demand confidence is "
@@ -810,9 +967,13 @@ def opportunity(demand, comp, product_fit, commercial_intent):
         "bandGate": gated,
         "factors": factors,
         "confidence": demand["confidence"],
-        "formula": "100 * demandNorm * beatabilityNorm * fitNorm * intentNorm",
-        "caveat": ("Two of four inputs are your own subjective ratings. Straight product, so a "
-                   "weak factor is not averaged away. Ranks candidates; measures nothing."),
+        "listingWeakness": weak,
+        "competitorStrengthContext": (comp.get("strength") or {}).get("score"),
+        "formula": ("100 * demand * smallAppsCanRank * productFit * commercialIntent "
+                    "* listingWeaknessModifier"),
+        "caveat": ("Two of four gates are your own subjective ratings. The score RANKS "
+                   "candidates - it measures nothing. Read the Top-10 distribution below "
+                   "before trusting it."),
     }
 
 
@@ -1108,11 +1269,15 @@ class Session:
                     "competition": None, "competitionBand": None, "medianTop10Ratings": None,
                     "top10Under500": None, "dominant": None, "opportunity": None,
                     "opportunityBand": None, "tractionPerDay": None, "smallRisers": None,
-                    "accelerating": None, "error": None}
+                    "accelerating": None, "riserPairs": [], "ladder": [], "entryBar": None,
+                    "entryBarMin": None, "bestPosSmall": None, "bestPosUnder1000": None,
+                    "under100": None, "under1000": None, "over10000": None,
+                    "avgRatingCount": None, "rankEvidence": None, "error": None}
         comp, dem = res.get("competition") or {}, res.get("demand") or {}
         trac = res.get("traction") or {}
-        opp = opportunity(dem, comp, fit, intent)
+        opp = opportunity(dem, comp, fit, intent, res.get("apps"))
         strength = comp.get("strength") or {}
+        pen = comp.get("penetration") or {}
         dom = comp.get("dominantIncumbent")
         return {
             "keyword": kw, "researched": True,
@@ -1123,11 +1288,22 @@ class Session:
             "top10Under500": comp.get("under500"), "pctUnder500": comp.get("pctUnder500"),
             "dominant": (f"{dom['name']} ({dom['ratingCount']:,})" if dom else None),
             "avgStars": comp.get("avgStars"), "appCount": len(res.get("apps") or []),
+            "ladder": [x["ratingCount"] for x in (pen.get("ladder") or [])],
+            "entryBar": pen.get("entryBarP25"),
+            "entryBarMin": pen.get("entryBarMin"),
+            "bestPosSmall": pen.get("bestPositionBelowMedian"),
+            "bestPosUnder1000": pen.get("bestPositionUnder1000"),
+            "under100": comp.get("under100"), "under1000": comp.get("under1000"),
+            "over10000": comp.get("over10000"), "avgRatingCount": comp.get("avgRatingCount"),
+            "rankEvidence": (rank_evidence(comp) or {}).get("value"),
             "tractionPerDay": (trac.get("medianCurrentRatingsPerDay")
                                if trac.get("hasTimeSeries")
                                else trac.get("medianLifetimeRatingsPerDay")),
             "tractionBasis": trac.get("estimateBasis"),
             "smallRisers": trac.get("smallRiserCount"),
+            "riserPairs": [[r["ratingCount"], r["ratingsPerDay"]]
+                           for r in (trac.get("growthRanking") or [])
+                           if isinstance(r["ratingCount"], (int, float))],
             "accelerating": trac.get("acceleratingCount"),
             "productFit": fit, "commercialIntent": intent,
             "opportunity": opp.get("score"), "opportunityBand": opp.get("band"),
@@ -1336,7 +1512,8 @@ class Handler(BaseHTTPRequestHandler):
                 "apps": [dict(a, productSignals=product_signals(a)) for a in apps],
                 "relatedTerms": res.get("relatedTerms"),
                 "opportunity": opportunity(res.get("demand") or {}, res.get("competition") or {},
-                                           meta.get("productFit"), meta.get("commercialIntent")),
+                                           meta.get("productFit"), meta.get("commercialIntent"),
+                                           res.get("apps")),
                 "ratings": meta,
                 "reviews": res.get("reviews"),
                 "error": res.get("error"),

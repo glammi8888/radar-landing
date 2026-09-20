@@ -168,10 +168,44 @@ The private key never leaves your machine. `asa_credentials.json` and `*.pem` ar
 Autocomplete is genuine evidence (Apple only completes queries people type) but it's
 **ordinal**, so it's capped below 5 on purpose. No volume number is ever emitted.
 
-### Competitor strength (0–100, higher = harder)
+### The central question: can small apps rank here?
 
-**Not an industry-standard ASO Keyword Difficulty score.** Four observable components,
-25 points each, all inputs shown beside the score:
+**Low competition is not opportunity.** A field of four tiny apps may simply have no demand.
+A 50,000-rating incumbent at #1 does **not** disqualify a keyword if 95- and 420-rating apps
+hold slots beside it.
+
+So the model asks one thing: **can relatively small or new apps successfully rank for this
+keyword?** It answers from the observed Top-10 distribution, with no pass/fail thresholds.
+
+> **Rating count is a proxy for competitor *traction*.** It is not keyword difficulty, not
+> downloads, and not search demand. Nothing in this tool treats it as any of those.
+
+**Under-500 is one signal among many, never a requirement.** The full distribution is
+reported and shown raw: median, average, counts under 100 / 500 / 1,000, count over 10,000,
+the exact positions smaller apps occupy, and the whole rating ladder in rank order.
+
+```
+entryFactor = 1 - log10(entryBarP25 + 1) / log10(50000)
+   entryBarP25 is the 25th percentile of top-10 rating counts — the FLOOR, not the median.
+   You don't need to match the median to appear; you need to clear what the weakest
+   ranked apps cleared.
+
+reachFactor = 1 - (bestPositionBelowMedian - 1) / sampleSize
+   How HIGH a below-median app gets. Reaching #2 means size isn't gating rank.
+   Only appearing at #9–#10 means the SERP is stratified by size.
+
+smallAppsCanRank = entryFactor × reachFactor
+```
+
+A dominant incumbent is still **detected and displayed** — it just carries
+`scoringImpact: "none"`. Excluding keywords because a large competitor exists throws away
+exactly the opportunities worth having.
+
+### Competitor strength (0–100) — context only
+
+Reported beside the distribution, **not** folded into the opportunity score (that would
+double-count the same rating data). **Not an industry-standard ASO difficulty score.** Four
+observable components, 25 points each:
 
 ```
 A. Rating mass        25 * log10(medianTop10 + 1) / 5
@@ -180,37 +214,31 @@ C. Keyword targeting  25 * (exactInTitle + 0.5*inTitle) / n
 D. Entrenchment       15 * (avgStars - 3)/2  +  10 * (freshlyUpdated / n)
 ```
 
-### Beatability (0–1)
-
-**Deliberately not `100 − competitorStrength`.** Competitor strength *describes* a field;
-beatability asks whether you can *enter* it. A field of billion-dollar brands has *low*
-keyword targeting — they rank on authority, not on stuffing the term into their title —
-which would make the descriptive score look mild while the field is in fact unenterable.
-
-```
-massFactor  = 1 - log10(medianTop10 + 1) / log10(50000)     floored at 0.03
-dominance   = 0.35 if a dominant incumbent exists else 1.0
-targeting   = 1 - 0.3 * (exactInTitle + 0.5*inTitle) / n
-
-beatability = massFactor * dominance * targeting
-```
-
 ### Opportunity (0–100)
 
 ```
-100 * demandNorm * beatabilityNorm * productFitNorm * commercialIntentNorm
+100 × demand × smallAppsCanRank × productFit × commercialIntent × listingWeaknessModifier
 ```
 
-A **straight product**, not a mean. A mean lets three good factors paper over a fatal
-fourth; the product doesn't. Zero demand scores zero however empty the field is. A
-brand-dominated keyword collapses via beatability.
+Four **gates**, multiplied, because each can independently kill a candidate: no demand,
+can't rank, wrong market, can't monetize. Listing weakness is a **modifier** (0.85–1.25),
+not a gate — weak incumbent listings make entry easier, but strong ones don't disqualify.
 
-Typical real range is **10–45**. Bands: `STRONG ≥ 30`, `WORTH A LOOK ≥ 15`, else `WEAK`.
-A LOW or UNKNOWN demand confidence **can never display STRONG**, so two 5-star subjective
-ratings can't manufacture a hot lead.
+Bands: `STRONG ≥ 30`, `WORTH A LOOK ≥ 15`, else `WEAK`. LOW or UNKNOWN demand confidence
+**can never display STRONG**. Withheld entirely when demand or the SERP distribution is
+unknown, or when you haven't rated fit and intent.
 
-Withheld (shown as `—`) whenever demand is unknown, competition is unknown, or you haven't
-rated product fit and commercial intent.
+**The score ranks candidates. It measures nothing.** Every input is shown next to it, and
+the raw ladder is in the main table precisely so you can overrule it.
+
+#### Worked examples
+
+| SERP | Read |
+|---|---|
+| `50k · 8k · 700 · 420 · 180 · 95` | **Attractive.** Entry bar 95, small apps at #3–#6. The big incumbent is irrelevant to whether you can rank. |
+| `300 · 250 · 150 · 90` | **Not automatically good.** Trivially enterable, but likely no demand — and demand is a gate. |
+| `900k · 400k · … · 100k` | **Locked.** Nothing small ranks at all. Entry bar 100k. |
+| `900 · 800 · … · 501` | **Scoreable.** Zero apps under 500, yet the floor is ~506 — still enterable. No arbitrary cutoff zeroes it. |
 
 ---
 
@@ -242,12 +270,13 @@ sample, not the full history. For real qualitative work, read the excerpts yours
 
 Not the lowest competition. The pattern is:
 
-> **meaningful demand + beatable competition + weak incumbent products + strong product fit + monetizable intent**
+> **meaningful demand + evidence smaller apps can rank + competitor strength + product/listing
+> weakness + product fit + commercial intent**
 
-- Zero demand, zero competition → **bad** (scores ~0 here)
-- Huge demand, entrenched brands → **bad for a new app** (beatability collapses)
-- Real demand, several competitors at 100–500 ratings, no dominant incumbent, visibly weak
-  listings → **this is the one**
+- Zero demand, zero competition → **bad** (demand is a gate)
+- Huge demand, nothing small ranking anywhere → **bad for a new app**
+- Real demand, small apps visibly holding top-10 slots, weak listings → **this is the one**,
+  *whether or not* a big incumbent sits at #1
 
 Sort by Opportunity, then open the top few and *actually look at the competitors' screenshots*.
 The tool narrows 30 keywords to 5 worth your attention. It doesn't make the call.

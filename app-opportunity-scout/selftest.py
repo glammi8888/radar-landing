@@ -222,6 +222,89 @@ def run():
     check("revenue declared unavailable in export",
           any("revenue" in m for m in json.loads(scout.export_json())["unavailableMetrics"]))
 
+    # --- 11. The competition-model correction --------------------------------
+    print("\n[11] 'Can small apps rank here?' — the corrected model")
+
+    def serp(counts, shots=6, desc=1800):
+        return [scout.normalise_app(itunes_record(i, f"App {i}", rc, 4.5, shots=shots, desc=desc),
+                                    i, "x") for i, rc in enumerate(counts, 1)]
+
+    def score(counts, demand_score, fit=5, intent=5, conf="MEDIUM"):
+        apps = serp(counts)
+        comp = scout.analyse_competition(apps, "x")
+        opp = scout.opportunity({"score": demand_score, "confidence": conf,
+                                 "signal": "test"}, comp, fit, intent, apps)
+        return comp, opp
+
+    # The brief's example: big #1, but small apps hold slots beside it.
+    A_counts = [50000, 8000, 700, 420, 180, 95]
+    compA, oppA = score(A_counts, 4.0)
+    # A genuinely locked field: nothing small ranks at all.
+    LOCKED = [900000, 400000, 300000, 250000, 180000, 120000, 110000, 105000, 101000, 100000]
+    compL, oppL = score(LOCKED, 4.0)
+
+    check("dominant incumbent IS still detected", bool(compA["dominantIncumbent"]))
+    check("dominant incumbent declares zero scoring impact",
+          compA["dominantIncumbent"]["scoringImpact"].startswith("none"))
+    check("big incumbent does NOT disqualify when smalls rank",
+          oppA["score"] >= 15, f"A={oppA['score']}")
+    check("a keyword where smalls DO rank beats a locked one",
+          oppA["score"] > oppL["score"] * 3, f"A={oppA['score']} locked={oppL['score']}")
+    check("genuinely locked field scores near zero", oppL["score"] <= 5, f"locked={oppL['score']}")
+
+    # Entry bar is the FLOOR, not the median - that was the original bug.
+    pen = compA["penetration"]
+    check("entry bar reflects the floor, not the median",
+          pen["entryBarP25"] < pen["fieldMedian"],
+          f"p25={pen['entryBarP25']} median={pen['fieldMedian']}")
+    check("lowest ranking app is reported verbatim", pen["entryBarMin"] == 95)
+
+    # Low competition alone is NOT opportunity - demand must be the discriminator.
+    TINY = [300, 250, 150, 90]
+    _, opp_nodemand = score(TINY, 0.6, conf="LOW")
+    _, opp_demand = score(TINY, 4.0)
+    check("tiny field + no demand is NOT an opportunity",
+          opp_nodemand["score"] < 10, f"={opp_nodemand['score']}")
+    check("same SERP + real demand scores far higher",
+          opp_demand["score"] > opp_nodemand["score"] * 3,
+          f"{opp_demand['score']} vs {opp_nodemand['score']}")
+
+    # No arbitrary <500 gate: a field with ZERO apps under 500 but a low floor
+    # must still be scoreable, not zeroed out.
+    NONE_UNDER_500 = [900, 800, 700, 600, 550, 520, 510, 505, 502, 501]
+    compN, oppN = score(NONE_UNDER_500, 4.0)
+    check("zero apps under 500 does not zero the score",
+          oppN["score"] is not None and oppN["score"] > 10,
+          f"under500={compN['under500']} score={oppN['score']}")
+    check("that field really has no sub-500 apps", compN["under500"] == 0)
+
+    # Position data the brief explicitly asked for
+    check("positions of smaller apps are reported",
+          isinstance(pen["positionsUnder1000"], list) and pen["positionsUnder1000"] == [3, 4, 5, 6],
+          str(pen["positionsUnder1000"]))
+    check("best position under 1,000 reported", pen["bestPositionUnder1000"] == 3)
+    check("size-rank correlation reported", pen["sizeRankCorrelation"] is not None)
+
+    # reachFactor must actually respond to WHERE small apps sit
+    ev_bottom = scout.rank_evidence(scout.analyse_competition(
+        serp([50000, 40000, 30000, 20000, 180, 95]), "x"))
+    ev_top = scout.rank_evidence(scout.analyse_competition(
+        serp([95, 50000, 40000, 30000, 20000, 180]), "x"))
+    check("a small app ranking #1 beats one stuck at the bottom",
+          ev_top["value"] > ev_bottom["value"],
+          f"top={ev_top['value']} bottom={ev_bottom['value']}")
+
+    # listing weakness modifies but cannot collapse
+    strong_listings = scout.listing_weakness(serp(A_counts, shots=8, desc=2500))
+    check("listing weakness is a bounded modifier",
+          0.85 <= strong_listings["modifier"] <= 1.25, str(strong_listings["modifier"]))
+
+    # the underlying data must reach the table, not just the score
+    row_keys = scout.SESSION.row(list(scout.SESSION.keywords)[0]).keys()
+    for k in ("ladder", "entryBar", "entryBarMin", "bestPosSmall", "under100",
+              "under1000", "over10000", "rankEvidence"):
+        check(f"row exposes '{k}' for your own judgement", k in row_keys)
+
     print("\n" + "=" * 52)
     if FAILS:
         print(f"{len(FAILS)} FAILED:")

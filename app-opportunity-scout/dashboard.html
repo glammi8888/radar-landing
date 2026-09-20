@@ -57,6 +57,12 @@ td.kw{font-weight:550;cursor:pointer}
 td.kw:hover{color:var(--accent)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 .na{color:var(--muted);font-size:11.5px;letter-spacing:.02em}
+.ladder{font-family:ui-monospace,monospace;font-size:11.5px;white-space:nowrap}
+.ladder i{font-style:normal;color:var(--muted)}
+.ladder i.sm{color:var(--green);font-weight:650}
+.ladder u{text-decoration:none;opacity:.3;padding:0 1px}
+table{display:block;overflow-x:auto}
+thead,tbody{display:table;width:100%}
 
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;
   vertical-align:middle}
@@ -121,17 +127,26 @@ pre{white-space:pre-wrap;font-size:11.5px;background:var(--chip);padding:9px;bor
 </header>
 
 <div class="note" id="banner">
-  <b>What this is and isn't.</b> Every number here comes from Apple's public endpoints or is
-  calculated from them with a formula you can read. <b>Search volume, keyword difficulty,
-  downloads and revenue are not shown at all</b> &mdash; they require a paid ASO provider, so
-  they are marked UNAVAILABLE rather than estimated. App order is
+  <b>What this is and isn't.</b> Every number comes from Apple's public endpoints or is
+  calculated from them with a formula you can read. <b>Search volume, keyword difficulty and
+  revenue are not shown at all</b> &mdash; they need a paid provider or unobservable inputs, so
+  they are marked UNAVAILABLE rather than estimated. Downloads appear only as a wide
+  <b>range</b> built on one assumption you control. App order is
   <b>iTunes Search API relevance, not the live App Store ranking.</b>
+  Rating count is a proxy for competitor <b>traction</b> &mdash; not difficulty, downloads or demand.
 </div>
 
 <div class="bar">
   <input type="text" id="newkw" placeholder="Add keyword, Enter to submit">
   <button id="add">Add</button>
   <input type="text" id="filter" placeholder="Filter keywords">
+  <select id="cap" title="Ceiling for counting an app as 'rising'. Changes the Rising column instantly.">
+    <option value="500">Rising: under 500 ratings</option>
+    <option value="1000">Rising: under 1,000</option>
+    <option value="2500">Rising: under 2,500</option>
+    <option value="10000">Rising: under 10,000</option>
+    <option value="999999999">Rising: any size</option>
+  </select>
   <select id="only">
     <option value="all">All keywords</option>
     <option value="done">Researched</option>
@@ -157,8 +172,12 @@ pre{white-space:pre-wrap;font-size:11.5px;background:var(--chip);padding:9px;bor
 <div class="empty" id="empty" style="display:none">No keywords match this filter.</div>
 
 <div class="note" style="margin-top:22px">
-  <b>Reading the table.</b> We are not hunting the lowest competition. We want
-  <b>meaningful demand + beatable competition + weak incumbent products + strong product fit</b>.
+  <b>Reading the table.</b> Low competition is not opportunity. The question is
+  <b>&ldquo;can relatively small or new apps rank here?&rdquo;</b> &mdash; which is why the
+  Top-10 ladder is shown raw. A big incumbent at #1 does <b>not</b> disqualify a keyword: if
+  95- and 420-rating apps hold slots beside it, the door is open. Equally, a field of four
+  tiny apps is not automatically good &mdash; it may just have no demand.
+  <b>Under-500 is one signal, never a requirement.</b>
   A keyword with zero competition and zero demand scores zero here by design &mdash; the
   opportunity score multiplies its four factors, so a weak one is never averaged away.
   Click any keyword for the full breakdown.
@@ -176,16 +195,27 @@ let STATE = {rows:[],keywords:{}}, sortKey='opportunity', sortDir=-1;
 const COLS = [
   {k:'keyword',       t:'Keyword',          cls:'kw'},
   {k:'demand',        t:'Demand',           cls:'num', fmt:v=>v==null?na():dot(demandColor(v))+v.toFixed(1)},
-  {k:'demandConfidence',t:'Confidence',     fmt:v=>`<span class="chip">${v||'UNKNOWN'}</span>`},
-  {k:'competition',   t:'Competition',      cls:'num', fmt:(v,r)=>v==null?na():dot(compColor(v))+v},
-  {k:'medianTop10Ratings',t:'Median top-10 ratings',cls:'num',fmt:v=>v==null?na():Math.round(v).toLocaleString()},
-  {k:'top10Under500', t:'Top-10 under 500', cls:'num', fmt:(v,r)=>v==null?na():`${v}/10`},
-  {k:'dominant',      t:'Dominant competitor',fmt:v=>v?`<span style="font-size:12px">${esc(v)}</span>`:'<span class="na">none detected</span>'},
-  {k:'tractionPerDay',t:'Ratings/day',       cls:'num', fmt:(v,r)=>v==null?na('Run research to measure'):
-     `${v.toFixed(2)}<span class="chip" style="margin-left:5px">${r.tractionBasis==='current velocity'?'measured':'lifetime'}</span>`},
-  {k:'smallRisers',   t:'Rising',            cls:'num', fmt:v=>v==null?na():(v>0?dot('g')+v:'<span class="na">0</span>')},
-  {k:'productFit',    t:'Product fit',      fmt:(v,r)=>rater(r.keyword,'productFit',v)},
-  {k:'commercialIntent',t:'Comm. intent',   fmt:(v,r)=>rater(r.keyword,'commercialIntent',v)},
+  {k:'demandConfidence',t:'Conf.',          fmt:v=>`<span class="chip">${(v||'UNKNOWN').slice(0,3)}</span>`},
+  // The raw Top-10 rating distribution, in rank order. This is the underlying
+  // data the score is built from - read the shape, not just the number.
+  {k:'ladder',        t:'Top-10 ratings, in rank order', val:r=>r.ladder?r.ladder.length:0,
+     fmt:(v,r)=>ladder(r)},
+  {k:'entryBar',      t:'Entry bar',        cls:'num',
+     fmt:(v,r)=>v==null?na():`<span title="25th pct; lowest on page: ${r.entryBarMin}">${abbr(v)}</span>`},
+  {k:'rankEvidence',  t:'Small can rank',   cls:'num',
+     fmt:v=>v==null?na():dot(rankColor(v))+v.toFixed(2)},
+  {k:'bestPosSmall',  t:'Best small pos',   cls:'num',
+     fmt:v=>v==null?na('No app below the field median'):'#'+v},
+  {k:'medianTop10Ratings',t:'Median',       cls:'num',fmt:v=>v==null?na():abbr(v)},
+  {k:'top10Under500', t:'<500',             cls:'num', fmt:(v,r)=>v==null?na():`${v}/10`},
+  {k:'dominant',      t:'Dominant (info only)',
+     fmt:v=>v?`<span class="na" style="font-size:11.5px">${esc(v)}</span>`:'<span class="na">none</span>'},
+  {k:'smallRisers',   t:'Rising',           cls:'num',
+     val:r=>r.researched?risersFor(r):null,
+     fmt:(v,r)=>{const n=r.researched?risersFor(r):null;
+                 return n==null?na():(n>0?dot('g')+n:'<span class="na">0</span>');}},
+  {k:'productFit',    t:'Fit',              fmt:(v,r)=>rater(r.keyword,'productFit',v)},
+  {k:'commercialIntent',t:'Intent',         fmt:(v,r)=>rater(r.keyword,'commercialIntent',v)},
   {k:'opportunity',   t:'Opportunity',      cls:'num opp', fmt:(v,r)=>v==null?na(r.opportunityReason):dot(oppColor(v))+v},
 ];
 
@@ -194,6 +224,15 @@ const na = (title) => `<span class="na" title="${esc(title||'Not available')}">&
 const dot = c => `<span class="dot ${c}"></span>`;
 // Sparse colour: green only for genuinely promising, red only for genuinely blocked.
 const demandColor = v => v>=3 ? 'g' : v>=1.8 ? 'y' : 'r';
+const rankColor   = v => v>=0.30 ? 'g' : v>=0.12 ? 'y' : 'r';
+const abbr = n => n==null?'—':(n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?Math.round(n/1e3)+'k':Math.round(n));
+// Renders the Top-10 rating counts in rank order. Values under 1,000 are
+// highlighted: seeing WHERE the small apps sit is the whole point.
+function ladder(r){
+  if(!r.ladder || !r.ladder.length) return na('Run research');
+  return '<span class="ladder">' + r.ladder.map(c =>
+    `<i class="${c<1000?'sm':''}">${abbr(c)}</i>`).join('<u>·</u>') + '</span>';
+}
 const compColor   = v => v<=38 ? 'g' : v<=65 ? 'y' : 'r';
 const oppColor    = v => v>=30 ? 'g' : v>=15 ? 'y' : 'r';
 
@@ -215,6 +254,16 @@ function renderHead(){
   });
 }
 
+// Rising is recomputed here rather than server-side, so moving the ceiling is
+// instant and needs no re-fetch. RISER_MIN_RATE below mirrors scout.py.
+const RISER_MIN_RATE = 0.3;
+function riserCap(){ return +($('#cap')?.value || 500); }
+function risersFor(r){
+  if(!r.riserPairs) return r.smallRisers;
+  const cap = riserCap();
+  return r.riserPairs.filter(([rc,rate]) => rc < cap && rate >= RISER_MIN_RATE).length;
+}
+
 function visibleRows(){
   const f = $('#filter').value.trim().toLowerCase(), only = $('#only').value;
   return STATE.rows.filter(r=>{
@@ -224,7 +273,9 @@ function visibleRows(){
     if(only==='scored' && r.opportunity==null) return false;
     return true;
   }).sort((a,b)=>{
-    let x=a[sortKey], y=b[sortKey];
+    const col = COLS.find(c=>c.k===sortKey);
+    let x = col&&col.val ? col.val(a) : a[sortKey];
+    let y = col&&col.val ? col.val(b) : b[sortKey];
     if(typeof x==='string'||typeof y==='string') return String(x??'').localeCompare(String(y??''))*sortDir;
     if(x==null&&y==null) return 0;
     if(x==null) return 1;            // unknowns always sink, either direction
@@ -238,7 +289,7 @@ function render(){
   const rows = visibleRows();
   $('#empty').style.display = rows.length ? 'none':'block';
   $('#rows').innerHTML = rows.map(r=>'<tr>'+COLS.map(c=>{
-    const v = r[c.k];
+    const v = c.val ? c.val(r) : r[c.k];
     const inner = c.fmt ? c.fmt(v,r) : (v==null?na():esc(v));
     return `<td class="${c.cls||''}" ${c.cls==='kw'?`data-open="${esc(r.keyword)}"`:''}>${inner}</td>`;
   }).join('')+'</tr>').join('');
@@ -320,7 +371,23 @@ async function openDetail(kw){
     ${!tr.hasTimeSeries?`<div class="why">Only one observation so far, so these are lifetime
       averages (total ratings ÷ app age). Re-run research in a few days and measured
       velocity replaces them — that is the number that actually matters.</div>`:''}
-    ${(tr.smallRisers||[]).length?`<div style="margin-top:11px">
+    ${(tr.growthRanking||[]).length?`<div style="margin-top:13px">
+      <b style="font-size:11px;letter-spacing:.05em;color:var(--muted)">GROWTH LEADERBOARD — every app, any size</b>
+      <table style="margin-top:7px;font-size:12.5px">
+        <thead><tr><th>App</th><th class="num">Ratings</th><th class="num">Per day</th><th class="num">Momentum</th></tr></thead>
+        <tbody>${tr.growthRanking.map(r=>`<tr>
+          <td>${esc(r.name)}${r.accelerating?' <span class="chip">ACCEL</span>':''}</td>
+          <td class="num">${r.ratingCount!=null?r.ratingCount.toLocaleString():'—'}</td>
+          <td class="num">${r.ratingsPerDay}</td>
+          <td class="num">${r.momentum!=null?r.momentum+'×':'<span class="na">—</span>'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <div class="why" style="margin-top:6px">Sorted by growth, no size filter. A big app growing
+        fast is a different signal from a small one — it means the niche is expanding, not just
+        that someone is getting started. Momentum compares an app to its own lifetime average.</div>
+    </div>`:''}
+
+    ${(tr.smallRisers||[]).length?`<div style="margin-top:13px">
       <b style="font-size:11px;letter-spacing:.05em;color:var(--muted)">SMALL APPS GAINING TRACTION</b>
       ${tr.smallRisers.map(r=>`<div class="why" style="margin-top:4px">▸ <b>${esc(r.name)}</b> —
         ${r.ratingCount.toLocaleString()} ratings, ${r.ratingsPerDay}/day
@@ -380,6 +447,47 @@ async function openDetail(kw){
     }).join('') || '<div class="na">No apps returned.</div>'}
   </div>`;
 
+  const pen = c.penetration||{};
+  const distCard = `<div class="card">
+    <div class="why" style="margin:0 0 10px"><b>This is the evidence.</b> Rating count is a proxy
+      for competitor <b>traction</b> — not keyword difficulty, not downloads, not search demand.
+      Read the shape before you read any score.</div>
+    <table style="font-size:12.5px">
+      <thead><tr><th>Pos</th><th>App</th><th class="num">Ratings</th><th class="num">Stars</th>
+        <th class="num">Age</th><th class="num">Updated</th></tr></thead>
+      <tbody>${(d.apps||[]).slice(0,10).map(a=>{
+        const small = (a.ratingCount!=null && a.ratingCount<1000);
+        return `<tr>
+          <td class="num">#${a.position}</td>
+          <td>${esc(a.name||'—')}${small?' <span class="chip" style="color:var(--green)">SMALL</span>':''}</td>
+          <td class="num" style="${small?'color:var(--green);font-weight:650':''}">${a.ratingCount!=null?a.ratingCount.toLocaleString():'—'}</td>
+          <td class="num">${a.rating!=null?a.rating.toFixed(1):'—'}</td>
+          <td class="num">${a.ageDays!=null?(a.ageDays/365).toFixed(1)+'y':'—'}</td>
+          <td class="num">${a.daysSinceUpdate!=null?a.daysSinceUpdate+'d':'—'}</td>
+        </tr>`;}).join('')}</tbody>
+    </table>
+    <div class="kv" style="margin-top:13px">
+      <div><span>Entry bar (25th pct)</span><b>${pen.entryBarP25!=null?Math.round(pen.entryBarP25).toLocaleString():'—'}</b></div>
+      <div><span>Lowest that still ranks</span><b>${pen.entryBarMin!=null?pen.entryBarMin.toLocaleString():'—'}</b></div>
+      <div><span>Field median</span><b>${pen.fieldMedian!=null?Math.round(pen.fieldMedian).toLocaleString():'—'}</b></div>
+      <div><span>Average</span><b>${c.avgRatingCount!=null?Math.round(c.avgRatingCount).toLocaleString():'—'}</b></div>
+      <div><span>Under 100</span><b>${c.under100??'—'}</b></div>
+      <div><span>Under 500</span><b>${c.under500??'—'}</b></div>
+      <div><span>Under 1,000</span><b>${c.under1000??'—'}</b></div>
+      <div><span>Over 10,000</span><b>${c.over10000??'—'}</b></div>
+      <div><span>Positions under 1,000</span><b>${(pen.positionsUnder1000||[]).map(x=>'#'+x).join(' ')||'<span class="na">none</span>'}</b></div>
+      <div><span>Best pos below median</span><b>${pen.bestPositionBelowMedian?'#'+pen.bestPositionBelowMedian:'—'}</b></div>
+      <div><span>Under-1,000 apps in top 5</span><b>${pen.inTop5Under1000??'—'}</b></div>
+      <div><span>Size↔rank correlation</span><b>${pen.sizeRankCorrelation??'—'}</b></div>
+    </div>
+    <div class="why">${esc(pen.note||'')}</div>
+    ${c.dominantIncumbent?`<div class="why"><b>Dominant incumbent:</b> ${esc(c.dominantIncumbent.name)}
+      at ${c.dominantIncumbent.ratingCount.toLocaleString()} ratings —
+      ${c.dominantIncumbent.multipleOfFieldMedian}× the rest of the field.
+      <b>This does not reduce the score.</b> ${esc(c.dominantIncumbent.thresholdCaveat||'')}</div>`
+      :'<div class="why">No dominant incumbent flagged.</div>'}
+  </div>`;
+
   const compRows = s.components ? Object.entries(s.components).map(([k,v])=>`
     <div class="brow"><span>${esc(k.replace(/([A-Z])/g,' $1').toLowerCase())}</span>
       <div class="track"><div class="fill obj" style="width:${v/25*100}%"></div></div>
@@ -429,9 +537,10 @@ transparent sum of four observable components, each capped at 25 points.</pre>`:
 
   const oppBars = opp.factors ? Object.entries(opp.factors).map(([k,f])=>`
     <div class="brow"><span>${esc(k.replace(/([A-Z])/g,' $1').toLowerCase())}
-      <span class="chip">${f.kind}</span></span>
-      <div class="track"><div class="fill ${f.kind==='objective'?'obj':''}" style="width:${Math.max(0,f.norm*100)}%"></div></div>
-      <span class="num">${f.raw==null?'—':f.raw}</span></div>`).join('') : '';
+      <span class="chip">${f.kind}</span>${f.role==='modifier'?' <span class="chip">modifier</span>':''}</span>
+      <div class="track"><div class="fill ${f.kind==='objective'?'obj':''}" style="width:${Math.min(100,Math.max(0,f.norm*100))}%"></div></div>
+      <span class="num">${f.raw==null?'—':f.raw}</span></div>
+      ${f.note?`<div class="why" style="margin:1px 0 5px 130px;font-size:11.5px">${esc(f.note)}</div>`:''}`).join('') : '';
 
   const oppCard = `<div class="card">
     <div class="kv">
@@ -444,10 +553,14 @@ transparent sum of four observable components, each capped at 25 points.</pre>`:
     <div class="bars">${oppBars}</div>
     ${opp.formula?`<pre>${esc(opp.formula)}
 
-Blue bars are objective (from Apple data). Grey bars are your own subjective 1-5
-ratings. Beatability is NOT (100 - competitor strength): it weights rating mass
-and incumbent dominance far more heavily, because brands rank on authority
-without needing the keyword in their title. ${esc(opp.caveat||'')}</pre>`:''}
+Four GATES multiply, because each can independently kill a candidate. Listing
+weakness is a MODIFIER (0.85-1.25) - weak incumbent listings make entry easier,
+but strong ones do not disqualify a keyword.
+
+"Small apps can rank" is built from the observed distribution: how low the entry
+bar is, and how high a below-median app reaches. A large incumbent does NOT
+reduce it. Competitor strength is shown separately as context only - folding it
+in would double-count the same rating data. ${esc(opp.caveat||'')}</pre>`:''}
   </div>`;
 
   const related = (d.relatedTerms||[]).length ? `<div class="card">
@@ -464,7 +577,8 @@ without needing the keyword in their title. ${esc(opp.caveat||'')}</pre>`:''}
     <div class="step"><h3>Demand</h3>${demandCard}</div>
     <div class="step"><h3>Traction — who is actually growing</h3>${tractionCard}</div>
     <div class="step"><h3>Opportunity summary</h3>${oppCard}</div>
-    <div class="step"><h3>Competitor strength</h3>${compCard}</div>
+    <div class="step"><h3>Top-10 distribution — can small apps rank?</h3>${distCard}</div>
+    <div class="step"><h3>Competitor strength (context only)</h3>${compCard}</div>
     <div class="step"><h3>Top apps (${(d.apps||[]).length})</h3>${appsCard}</div>
     <div class="step"><h3>Product analysis — weak listings</h3>${productCard}</div>
     ${related?`<div class="step"><h3>Related search terms</h3>${related}</div>`:''}
@@ -510,6 +624,8 @@ $('#overlay').onclick = e => { if(e.target.id==='overlay') closeDetail(); };
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeDetail(); });
 $('#filter').oninput = render;
 $('#only').onchange = render;
+$('#cap').onchange = () => { try{localStorage.setItem('riserCap',$('#cap').value);}catch(e){} render(); };
+try{ const saved=localStorage.getItem('riserCap'); if(saved) $('#cap').value=saved; }catch(e){}
 
 $('#add').onclick = async () => {
   const raw = $('#newkw').value.trim();
