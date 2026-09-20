@@ -4,6 +4,12 @@ Keyword opportunity research for the **US Apple App Store (iPhone)**.
 
 Answers one question: **which App Store search opportunity should I position my app around?**
 
+**No terminal needed** — double-click **`Start Scout.command`** (Mac) or **`Start Scout.bat`**
+(Windows). It finds Python, picks a free port, opens your browser, and keeps running until you
+close the window. If Python is missing it tells you exactly what to click.
+
+Or from a terminal, if you prefer:
+
 ```bash
 python3 scout.py          # -> http://localhost:8787
 python3 selftest.py       # offline logic check, no network
