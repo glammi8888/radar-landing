@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Opportunity Scout</title>
+<style>
+:root{
+  --bg:#fbfbfa; --panel:#fff; --ink:#1a1a18; --muted:#6b6b66; --line:#e6e5e1;
+  --green:#27724a; --yellow:#9a7213; --red:#a33a2c; --accent:#2f5fd0;
+  --chip:#f2f1ee;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141413; --panel:#1c1c1a; --ink:#ecebe6; --muted:#9a9993; --line:#302f2c;
+  --green:#6fbf8b; --yellow:#d6ad4e; --red:#e08272; --accent:#7aa2f7; --chip:#262623;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.5 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{font-weight:600;letter-spacing:-.01em;margin:0}
+a{color:var(--accent)}
+.wrap{max-width:1400px;margin:0 auto;padding:28px 16px 80px}
+
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;margin-bottom:6px}
+header h1{font-size:19px}
+.sub{color:var(--muted);font-size:13px}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:20px 0 14px}
+input,select,button,textarea{font:inherit;color:inherit}
+input[type=text],select{background:var(--panel);border:1px solid var(--line);
+  border-radius:7px;padding:7px 10px}
+input[type=text]{min-width:220px}
+button{background:var(--panel);border:1px solid var(--line);border-radius:7px;
+  padding:7px 13px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+button.primary:disabled{opacity:.45;cursor:default}
+.spacer{flex:1}
+
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--muted);
+  border-radius:7px;padding:11px 14px;font-size:13px;color:var(--muted);margin:14px 0}
+.note b{color:var(--ink);font-weight:600}
+
+table{width:100%;border-collapse:collapse;background:var(--panel);
+  border:1px solid var(--line);border-radius:9px;overflow:hidden;font-size:13.5px}
+th{text-align:left;font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);padding:11px 10px;border-bottom:1px solid var(--line);
+  cursor:pointer;user-select:none;white-space:nowrap;background:var(--panel);
+  position:sticky;top:0;z-index:2}
+th:hover{color:var(--ink)}
+th .ar{opacity:.4;font-size:9px}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--chip)}
+td.kw{font-weight:550;cursor:pointer}
+td.kw:hover{color:var(--accent)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.na{color:var(--muted);font-size:11.5px;letter-spacing:.02em}
+.ladder{font-family:ui-monospace,monospace;font-size:11.5px;white-space:nowrap}
+.ladder i{font-style:normal;color:var(--muted)}
+.ladder i.sm{color:var(--green);font-weight:650}
+.ladder u{text-decoration:none;opacity:.3;padding:0 1px}
+table{display:block;overflow-x:auto}
+thead,tbody{display:table;width:100%}
+
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;
+  vertical-align:middle}
+.g{background:var(--green)} .y{background:var(--yellow)} .r{background:var(--red)}
+.n{background:var(--line)}
+
+.chip{display:inline-block;font-size:10.5px;letter-spacing:.03em;padding:2px 6px;
+  border-radius:4px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.rate{display:flex;gap:2px}
+.rate b{width:19px;height:22px;display:grid;place-items:center;border-radius:4px;
+  font-size:11.5px;font-weight:500;cursor:pointer;color:var(--muted);border:1px solid transparent}
+.rate b:hover{background:var(--chip)}
+.rate b.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.opp{font-weight:650;font-variant-numeric:tabular-nums}
+
+/* detail */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);
+  display:none;z-index:50;overflow-y:auto}
+.overlay.open{display:block}
+.sheet{max-width:940px;margin:36px auto;background:var(--bg);border:1px solid var(--line);
+  border-radius:12px;padding:24px}
+.sheet h2{font-size:18px;margin-bottom:2px}
+.step{margin:22px 0 0}
+.step>h3{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+  padding-bottom:7px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px;
+  margin-bottom:10px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kv div span{display:block;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:2px}
+.kv div b{font-weight:600;font-variant-numeric:tabular-nums}
+.why{font-size:12.5px;color:var(--muted);margin-top:9px;line-height:1.55}
+.app{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.app:last-child{border-bottom:none}
+.app img{width:44px;height:44px;border-radius:10px;flex:none;background:var(--chip)}
+.app .m{flex:1;min-width:0}
+.app .t{font-weight:550;font-size:13.5px}
+.app .d{font-size:12px;color:var(--muted);margin-top:1px}
+.flag{font-size:11.5px;color:var(--yellow);margin-top:4px}
+.bars{display:grid;gap:5px;margin-top:10px}
+.brow{display:grid;grid-template-columns:130px 1fr 42px;gap:9px;align-items:center;font-size:12px}
+.track{height:5px;background:var(--chip);border-radius:3px;overflow:hidden}
+.fill{height:100%;background:var(--muted);border-radius:3px}
+.fill.obj{background:var(--accent)}
+.close{position:sticky;top:0;float:right;background:var(--panel)}
+pre{white-space:pre-wrap;font-size:11.5px;background:var(--chip);padding:9px;border-radius:6px;
+  color:var(--muted);overflow-x:auto;margin:8px 0 0}
+.log{max-height:150px;overflow-y:auto;font-size:11.5px;color:var(--muted);
+  font-family:ui-monospace,monospace}
+.empty{text-align:center;padding:56px 20px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>App Opportunity Scout</h1>
+  <span class="sub">United States &middot; Apple App Store (iPhone)</span>
+  <div class="spacer"></div>
+  <span class="sub" id="storage"></span>
+</header>
+
+<div class="note" id="banner">
+  <b>Browser build.</b> Everything runs on this page and stays in this browser &mdash; nothing is
+  uploaded anywhere. Apple is called directly via JSONP.
+  <b>Search volume, keyword difficulty and revenue are not shown at all.</b> Downloads appear
+  only as a wide <b>range</b> built on one assumption you control. App order is
+  <b>iTunes Search API relevance, not the live App Store ranking.</b> Rating count is a proxy for
+  competitor <b>traction</b> &mdash; not difficulty, downloads or demand.
+</div>
+
+<div class="note" id="demandwarn" style="border-left-color:var(--yellow)">
+  <b>One limit of this build.</b> Apple's autocomplete endpoint needs a request header that a
+  browser page cannot send, so <b>demand confidence tops out at LOW here</b> and is inferred from
+  how many competitors target the term. The local build reaches MEDIUM. Everything else &mdash;
+  the SERP distribution, competitor strength, traction, reviews &mdash; is identical.
+</div>
+
+<div class="bar">
+  <input type="text" id="newkw" placeholder="Add keyword, Enter to submit">
+  <button id="add">Add</button>
+  <input type="text" id="filter" placeholder="Filter keywords">
+  <select id="cap" title="Ceiling for counting an app as 'rising'.">
+    <option value="500">Rising: under 500 ratings</option>
+    <option value="1000">Rising: under 1,000</option>
+    <option value="2500">Rising: under 2,500</option>
+    <option value="10000">Rising: under 10,000</option>
+    <option value="999999999">Rising: any size</option>
+  </select>
+  <select id="only">
+    <option value="all">All keywords</option>
+    <option value="done">Researched</option>
+    <option value="todo">Not yet researched</option>
+    <option value="scored">Has opportunity score</option>
+  </select>
+  <div class="spacer"></div>
+  <button id="csv">CSV</button>
+  <button id="jsonx">JSON</button>
+  <button id="reset">Reset</button>
+  <button class="primary" id="run">Run research</button>
+</div>
+
+<div class="note" id="progress" style="display:none">
+  <b id="ptitle">Researching&hellip;</b>
+  <div class="log" id="plog"></div>
+</div>
+
+<table>
+  <thead><tr id="head"></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<div class="empty" id="empty" style="display:none">No keywords match this filter.</div>
+
+<div class="note" style="margin-top:22px">
+  <b>Reading the table.</b> Low competition is not opportunity. The question is
+  <b>&ldquo;can relatively small or new apps rank here?&rdquo;</b> &mdash; which is why the
+  Top-10 ladder is shown raw. A big incumbent at #1 does <b>not</b> disqualify a keyword: if
+  95- and 420-rating apps hold slots beside it, the door is open. Equally, a field of four
+  tiny apps is not automatically good &mdash; it may just have no demand.
+  <b>Under-500 is one signal, never a requirement.</b>
+  Shift-click a keyword to delete it.
+</div>
+
+</div>
+
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+<script>/*
+ * App Opportunity Scout - scoring logic, ported from scout.py
+ * =========================================================
+ * This file is a DELIBERATE DUPLICATE of the Python model so the browser build
+ * can run with no server. parity-test.mjs runs the same fixtures through both
+ * and fails if they ever disagree - do not edit one without the other.
+ *
+ * Works as an ES module (node, tests) and as a plain <script> (the page).
+ */
+(function (root) {
+  'use strict';
+
+  // Python's round(x, n) rounds the EXACT binary value to nearest, ties-to-even.
+  // Multiplying by 10^n first introduces its own float error, and a tolerance
+  // like |v-floor(v)-0.5| < 1e-9 wrongly treats values a hair ABOVE half (e.g.
+  // 0.0985000000000000042) as exact ties, rounding them down where Python
+  // rounds up. So inspect the exact decimal expansion instead. toFixed(20) is
+  // correctly rounded and carries far more digits than we compare.
+  function r(x, n) {
+    if (x === null || x === undefined || typeof x !== 'number' || !isFinite(x)) return null;
+    n = n || 0;
+    if (Number.isInteger(x)) return x;
+    const sign = x < 0 ? -1 : 1;
+    const ax = Math.abs(x);
+    if (ax >= 1e15) return x;
+    const s = ax.toFixed(20);
+    const dot = s.indexOf('.');
+    const intPart = s.slice(0, dot);
+    const frac = s.slice(dot + 1);
+    if (n >= frac.length) return x;
+    const keep = frac.slice(0, n);
+    const rest = frac.slice(n);
+
+    const first = Number(rest[0]);
+    let up;
+    if (first > 5) up = true;
+    else if (first < 5) up = false;
+    else {
+      const tail = rest.slice(1).replace(/0+$/, '');
+      if (tail.length) up = true;                 // strictly greater than half
+      else {                                      // an exact tie -> to even
+        const lastKept = keep.length ? Number(keep[keep.length - 1])
+                                     : Number(intPart[intPart.length - 1]);
+        up = (lastKept % 2) === 1;
+      }
+    }
+    const base = Number(intPart + (keep ? '.' + keep : ''));
+    const out = up ? base + Math.pow(10, -n) : base;
+    return sign * Number(out.toFixed(n));
+  }
+
+  function median(xs) {
+    if (!xs.length) return null;
+    const s = [...xs].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  function mean(xs) { return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null; }
+
+  function percentile(sortedAsc, p) {
+    if (!sortedAsc.length) return null;
+    if (sortedAsc.length === 1) return sortedAsc[0];
+    const k = (sortedAsc.length - 1) * p;
+    const lo = Math.floor(k), hi = Math.ceil(k);
+    if (lo === hi) return sortedAsc[k];
+    return sortedAsc[lo] * (hi - k) + sortedAsc[hi] * (k - lo);
+  }
+
+  function spearman(xs, ys) {
+    const n = xs.length;
+    if (n < 3) return null;
+    const ranks = v => {
+      const order = [...Array(n).keys()].sort((a, b) => v[a] - v[b]);
+      const out = new Array(n);
+      order.forEach((idx, pos) => { out[idx] = pos + 1; });
+      return out;
+    };
+    const rx = ranks(xs), ry = ranks(ys);
+    const mx = mean(rx), my = mean(ry);
+    let num = 0, dx = 0, dy = 0;
+    for (let i = 0; i < n; i++) {
+      num += (rx[i] - mx) * (ry[i] - my);
+      dx += (rx[i] - mx) ** 2;
+      dy += (ry[i] - my) ** 2;
+    }
+    const den = Math.sqrt(dx * dy);
+    return den ? r(num / den, 3) : null;
+  }
+
+  const DAY = 86400000;
+
+  function normaliseApp(raw, position, keyword) {
+    const g = k => {
+      const v = raw[k];
+      if (v === '' || v === undefined || v === null) return null;
+      if (Array.isArray(v) && !v.length) return null;
+      return v;
+    };
+    const now = Date.now();
+    const release = g('releaseDate');
+    const updated = g('currentVersionReleaseDate');
+    const days = iso => {
+      if (!iso) return null;
+      const t = Date.parse(iso);
+      return isNaN(t) ? null : Math.floor((now - t) / DAY);
+    };
+    const title = g('trackName') || '';
+    const kw = (keyword || '').toLowerCase().trim();
+    const titleL = title.toLowerCase();
+    const tokens = kw.split(/\s+/).filter(Boolean);
+    const price = g('price');
+    const shots = raw.screenshotUrls || [];
+    const desc = g('description') || '';
+
+    return {
+      position,
+      trackId: g('trackId'),
+      name: title || null,
+      developer: g('sellerName') || g('artistName'),
+      url: g('trackViewUrl'),
+      category: g('primaryGenreName'),
+      genres: raw.genres || null,
+      rating: g('averageUserRating'),
+      ratingCount: raw.userRatingCount === undefined ? null : raw.userRatingCount,
+      price,
+      formattedPrice: g('formattedPrice'),
+      isFree: price === null || price === undefined ? null : price === 0,
+      version: g('version'),
+      releaseDate: release,
+      lastUpdate: updated,
+      // Storage is localStorage here, so keep an excerpt rather than the full text.
+      descriptionExcerpt: desc ? desc.slice(0, 600) : null,
+      descriptionLength: desc.length || null,
+      icon: g('artworkUrl512') || g('artworkUrl100'),
+      screenshots: shots.length ? shots.slice(0, 4) : null,
+      screenshotCount: shots.length,
+      ipadScreenshotCount: (raw.ipadScreenshotUrls || []).length,
+      minimumOsVersion: g('minimumOsVersion'),
+      contentRating: g('trackContentRating'),
+      languageCount: (raw.languageCodesISO2A || []).length || null,
+      ageDays: days(release),
+      daysSinceUpdate: days(updated),
+      exactMatchInTitle: title ? titleL.includes(kw) : null,
+      partialMatchInTitle: title ? (tokens.length > 0 && tokens.some(t => titleL.includes(t))) : null,
+      subtitle: null,
+      iapTiers: null,
+      downloads: null,
+      revenue: null
+    };
+  }
+
+  function penetration(top10) {
+    const pairs = top10
+      .filter(a => typeof a.ratingCount === 'number')
+      .map(a => [a.position, a.ratingCount]);
+    if (!pairs.length) return null;
+    const counts = pairs.map(p => p[1]).sort((a, b) => a - b);
+    const med = median(counts);
+    const bestUnder = limit => {
+      const hits = pairs.filter(p => p[1] < limit).map(p => p[0]);
+      return hits.length ? Math.min(...hits) : null;
+    };
+    const belowMedian = pairs.filter(p => p[1] < med);
+    const bestBelow = belowMedian.length ? Math.min(...belowMedian.map(p => p[0])) : null;
+    // Position order, NOT rating order: the ladder shows the SERP as ranked, so
+    // you can see where the small apps actually sit. Must match scout.py.
+    const byPos = [...pairs].sort((a, b) => a[0] - b[0]);
+
+    return {
+      ladder: byPos.map(p => ({ position: p[0], ratingCount: p[1] })),
+      entryBarMin: counts[0],
+      entryBarP25: r(percentile(counts, 0.25), 1),
+      fieldMedian: med,
+      bestPositionUnder100: bestUnder(100),
+      bestPositionUnder500: bestUnder(500),
+      bestPositionUnder1000: bestUnder(1000),
+      bestPositionUnder10000: bestUnder(10000),
+      positionsUnder500: byPos.filter(p => p[1] < 500).map(p => p[0]),
+      positionsUnder1000: byPos.filter(p => p[1] < 1000).map(p => p[0]),
+      belowMedianPositions: belowMedian.map(p => p[0]).sort((a, b) => a - b),
+      bestPositionBelowMedian: bestBelow,
+      inTop5Under1000: pairs.filter(p => p[0] <= 5 && p[1] < 1000).length,
+      sizeRankCorrelation: spearman(pairs.map(p => p[0]), pairs.map(p => -p[1])),
+      sampleSize: pairs.length
+    };
+  }
+
+  function competitorStrength(c) {
+    const a = 25 * Math.min(Math.log10(c.medianRatingCount + 1) / 5, 1);
+    const b = 25 * Math.min(Math.log10(c.maxRatingCount + 1) / 6, 1);
+    const n = Math.max(c.sampleSize, 1);
+    const cc = 25 * Math.min((c.exactInTitle + 0.5 * c.inTitle) / n, 1);
+    const stars = c.avgStars;
+    const starPts = stars === null ? 7.5 : 15 * Math.min(Math.max((stars - 3) / 2, 0), 1);
+    const freshPts = 10 * Math.min(c.freshlyUpdated / n, 1);
+    const d = starPts + freshPts;
+    const total = a + b + cc + d;
+    return {
+      score: r(total, 0),
+      band: total >= 66 ? 'HIGH' : (total >= 38 ? 'MEDIUM' : 'LOW'),
+      components: {
+        ratingMass: r(a, 1), incumbentCeiling: r(b, 1),
+        keywordTargeting: r(cc, 1), entrenchment: r(d, 1)
+      },
+      provenance: 'calculated'
+    };
+  }
+
+  function analyseCompetition(apps, keyword) {
+    const top10 = apps.slice(0, 10);
+    const counts = top10.filter(a => typeof a.ratingCount === 'number').map(a => a.ratingCount);
+    const stars = top10.filter(a => typeof a.rating === 'number').map(a => a.rating);
+    const missing = top10.length - counts.length;
+
+    if (!counts.length) {
+      return {
+        sampleSize: top10.length, ratingCountsMissing: missing,
+        note: 'No rating counts returned for this keyword. Competition cannot be assessed.',
+        medianRatingCount: null, avgRatingCount: null, minRatingCount: null,
+        maxRatingCount: null, under100: null, under500: null, under1000: null,
+        over10000: null, pctUnder500: null, exactInTitle: null, inTitle: null,
+        avgStars: null, dominantIncumbent: null, penetration: null,
+        freshlyUpdated: null, strength: null
+      };
+    }
+
+    const exact = top10.filter(a => a.exactMatchInTitle).length;
+    const partial = top10.filter(a => a.partialMatchInTitle).length;
+    const med = median(counts);
+    const maximum = Math.max(...counts);
+
+    let dominant = null;
+    const others = [...counts].sort((x, y) => y - x).slice(1);
+    const medOthers = others.length ? median(others) : 0;
+    if (maximum >= 50000 && (medOthers === 0 || maximum >= 10 * Math.max(medOthers, 1))) {
+      const topApp = top10.filter(a => typeof a.ratingCount === 'number')
+        .reduce((p, q) => (q.ratingCount > p.ratingCount ? q : p));
+      dominant = {
+        name: topApp.name, ratingCount: topApp.ratingCount,
+        multipleOfFieldMedian: r(maximum / Math.max(medOthers, 1), 1),
+        scoringImpact: 'none - descriptive flag only',
+        thresholdCaveat: 'Flagged at >=50,000 ratings AND >=10x the rest of the field. ' +
+          'Those cutoffs are labelling conventions, not evidence.'
+      };
+    }
+
+    const fresh = top10.filter(a => typeof a.daysSinceUpdate === 'number' && a.daysSinceUpdate <= 180).length;
+
+    const comp = {
+      sampleSize: top10.length, ratingCountsMissing: missing,
+      medianRatingCount: med, avgRatingCount: r(mean(counts), 1),
+      minRatingCount: Math.min(...counts), maxRatingCount: maximum,
+      under100: counts.filter(x => x < 100).length,
+      under500: counts.filter(x => x < 500).length,
+      under1000: counts.filter(x => x < 1000).length,
+      over10000: counts.filter(x => x > 10000).length,
+      pctUnder500: r(100 * counts.filter(x => x < 500).length / counts.length, 0),
+      exactInTitle: exact, inTitle: partial,
+      avgStars: stars.length ? r(mean(stars), 2) : null,
+      freshlyUpdated: fresh, dominantIncumbent: dominant
+    };
+    comp.penetration = penetration(top10);
+    comp.strength = competitorStrength(comp);
+    return comp;
+  }
+
+  function rankEvidence(comp) {
+    const pen = comp && comp.penetration;
+    if (!pen) return null;
+    let entry = 1 - (Math.log10(pen.entryBarP25 + 1) / Math.log10(50000));
+    entry = Math.max(0.03, Math.min(entry, 1));
+    const best = pen.bestPositionBelowMedian;
+    const n = Math.max(pen.sampleSize || 10, 1);
+    const reach = best === null ? 1 : Math.max(0.15, 1 - (best - 1) / n);
+    return {
+      value: r(entry * reach, 4),
+      components: { entryFactor: r(entry, 3), reachFactor: r(reach, 3) },
+      entryBarP25: pen.entryBarP25, entryBarMin: pen.entryBarMin,
+      bestPositionBelowMedian: best,
+      dominantIncumbentImpact: 'none - large competitors do not reduce this score',
+      provenance: 'calculated'
+    };
+  }
+
+  root.ScoutScoring = { r, median, mean, percentile, spearman, normaliseApp,
+    penetration, competitorStrength, analyseCompetition, rankEvidence };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+/* ---- part 2: product signals, demand, traction, opportunity, reviews ---- */
+(function (root) {
+  'use strict';
+  const S = root.ScoutScoring;
+  const { r, median, mean } = S;
+
+  function productSignals(app) {
+    const flags = [];
+    const dsu = app.daysSinceUpdate;
+    if (typeof dsu === 'number') {
+      if (dsu > 365) flags.push('Abandoned-looking: no update in over a year');
+      else if (dsu > 180) flags.push('Slow cadence: no update in 6+ months');
+    }
+    if (typeof app.screenshotCount === 'number' && app.screenshotCount <= 3)
+      flags.push('Thin screenshot set (<=3) - weak store presentation');
+    if (typeof app.descriptionLength === 'number' && app.descriptionLength < 600)
+      flags.push('Very short description - listing likely unoptimised');
+    if (typeof app.rating === 'number' && app.rating < 4)
+      flags.push(`Weak rating (${app.rating}) - user dissatisfaction`);
+    if (typeof app.ratingCount === 'number' && typeof app.ageDays === 'number'
+        && app.ageDays > 730 && app.ratingCount < 200)
+      flags.push('Low traction for its age - years old, still few ratings');
+    return {
+      observable: {
+        screenshotCount: app.screenshotCount,
+        hasIpadScreenshots: !!app.ipadScreenshotCount,
+        descriptionLength: app.descriptionLength,
+        daysSinceUpdate: app.daysSinceUpdate, ageDays: app.ageDays,
+        localisations: app.languageCount, pricing: app.formattedPrice
+      },
+      requiresYourEyes: ['Visual / screenshot quality', 'Positioning clarity',
+        'Apparent product sophistication', 'Differentiation'],
+      weaknessFlags: flags, weaknessCount: flags.length
+    };
+  }
+
+  function listingWeakness(apps) {
+    const top10 = apps.slice(0, 10);
+    if (!top10.length) return null;
+    const flags = top10.map(a => productSignals(a).weaknessFlags.length);
+    const weakShare = flags.filter(f => f).length / flags.length;
+    return {
+      appsWithWeakness: flags.filter(f => f).length,
+      sampleSize: flags.length,
+      weakShare: r(weakShare, 2),
+      avgFlagsPerApp: r(mean(flags), 2),
+      modifier: r(0.85 + 0.4 * weakShare, 3),
+      formula: '0.85 + 0.4 * (share of top 10 with >=1 listing weakness)',
+      provenance: 'calculated'
+    };
+  }
+
+  const NO_VOLUME = 'UNAVAILABLE without a paid ASO provider or Apple Ads credentials.';
+
+  /*
+   * Demand in the browser build.
+   *
+   * The autocomplete tier that the local build uses is NOT reachable here: that
+   * endpoint needs an X-Apple-Store-Front request header, and JSONP (a <script>
+   * tag) cannot set headers. So this build tops out at LOW confidence and says
+   * so, rather than quietly presenting a weaker signal as the same thing.
+   */
+  function assessDemand(keyword, comp, opts) {
+    opts = opts || {};
+    if (opts.asaPopularity !== undefined && opts.asaPopularity !== null) {
+      return {
+        score: r(Math.max(0, (opts.asaPopularity - 5) / 95 * 5), 2),
+        confidence: 'HIGH', provenance: 'verified',
+        signal: `Apple Ads Search Popularity = ${opts.asaPopularity}/100`,
+        why: "Apple's own search-popularity index for this term.",
+        searchVolume: null,
+        searchVolumeNote: 'Apple publishes a popularity index, not a volume.'
+      };
+    }
+    if (comp && comp.exactInTitle !== null && comp.exactInTitle !== undefined) {
+      const targeting = comp.exactInTitle + 0.5 * comp.inTitle;
+      if (targeting >= 2) {
+        return {
+          score: r(Math.min(2.5, 0.8 + 0.25 * targeting), 2),
+          confidence: 'LOW', provenance: 'proxy',
+          signal: `${comp.exactInTitle} exact + ${comp.inTitle} partial title matches in top 10`,
+          why: 'Inferred from SUPPLY, not demand: developers put a term in their title when ' +
+               'they believe people search it. Capped at 2.5/5. Apple autocomplete, which ' +
+               'would raise this to MEDIUM, needs a request header the browser build cannot ' +
+               'send - run the local version for that.',
+          searchVolume: null, searchVolumeNote: NO_VOLUME
+        };
+      }
+    }
+    return {
+      score: null, confidence: 'UNKNOWN', provenance: 'unavailable',
+      signal: 'No demand signal obtainable in the browser build.',
+      why: 'Too few competitors target this term for the supply-side proxy, and Apple ' +
+           'autocomplete needs a request header JSONP cannot set. The opportunity score ' +
+           'is withheld rather than guessed. The local build can reach MEDIUM confidence.',
+      searchVolume: null, searchVolumeNote: NO_VOLUME
+    };
+  }
+
+  const DEFAULT_RATING_RATE_BAND = [0.005, 0.05];
+  const DEFAULT_RISER_MAX_RATINGS = 500;
+  const RISER_MIN_RATE = 0.3;
+
+  function ratingRateBand(calib) {
+    if (calib && calib.length) {
+      const rates = calib.map(p => p.ratings / p.downloads).filter(x => x > 0);
+      if (rates.length) return { band: [Math.min(...rates), Math.max(...rates)],
+        source: `fitted from ${rates.length} ground-truth pair(s) you supplied`, n: rates.length };
+    }
+    return { band: DEFAULT_RATING_RATE_BAND,
+      source: 'ASSUMED default band (0.5%-5%) - an industry rule of thumb, not measured data',
+      n: 0 };
+  }
+
+  function estimateDownloads(ratingsPerDay, calib) {
+    if (ratingsPerDay === null || ratingsPerDay === undefined) return null;
+    const { band, source, n } = ratingRateBand(calib);
+    const [lo, hi] = band;
+    return {
+      perDayLow: r(ratingsPerDay / hi, 1), perDayHigh: r(ratingsPerDay / lo, 1),
+      perMonthLow: r(ratingsPerDay / hi * 30, 0), perMonthHigh: r(ratingsPerDay / lo * 30, 0),
+      ratingRateBand: band, calibrationPairs: n, assumption: source, provenance: 'estimated',
+      health: n ? 'CALIBRATED against your own data'
+                : 'UNCALIBRATED - this is an assumption, not a measurement',
+      warning: 'Dividing every app by the same rate does not change which keyword ranks ' +
+               'highest. This adds a sense of absolute scale, not ranking information.'
+    };
+  }
+
+  function traction(app, hist) {
+    const out = {
+      lifetimeRatingsPerDay: null, currentRatingsPerDay: null, momentum: null,
+      observationDays: null, snapshots: 0, ratingsGained: null, accelerating: null,
+      note: null, provenance: 'calculated'
+    };
+    if (typeof app.ratingCount === 'number' && typeof app.ageDays === 'number' && app.ageDays > 0)
+      out.lifetimeRatingsPerDay = r(app.ratingCount / app.ageDays, 3);
+
+    const series = (hist || {})[String(app.trackId)] || [];
+    out.snapshots = series.length;
+    if (series.length < 2) {
+      out.note = 'Only one observation so far. Re-run research in a few days and current ' +
+                 'velocity appears here.';
+      return out;
+    }
+    const [t0, rc0] = series[0], [t1, rc1] = series[series.length - 1];
+    const days = (t1 - t0) / 86400;
+    if (days < 1) {
+      out.note = `Observation window is only ${(days * 24).toFixed(1)}h - too short to be meaningful.`;
+      return out;
+    }
+    out.observationDays = r(days, 1);
+    out.ratingsGained = rc1 - rc0;
+    out.currentRatingsPerDay = r((rc1 - rc0) / days, 3);
+    if (out.lifetimeRatingsPerDay) {
+      out.momentum = r(out.currentRatingsPerDay / out.lifetimeRatingsPerDay, 2);
+      out.accelerating = out.momentum > 1.2;
+    }
+    if (days < 7)
+      out.note = `Only ${out.observationDays} days of observation - treat velocity as provisional.`;
+    return out;
+  }
+
+  function tractionSummary(apps, hist, riserMax, calib) {
+    riserMax = riserMax || DEFAULT_RISER_MAX_RATINGS;
+    const top10 = apps.slice(0, 10);
+    top10.forEach(a => { a.traction = traction(a, hist); });
+    const life = top10.map(a => a.traction.lifetimeRatingsPerDay).filter(x => x !== null);
+    const cur = top10.map(a => a.traction.currentRatingsPerDay).filter(x => x !== null);
+    const accel = top10.filter(a => a.traction.accelerating);
+
+    const bestRate = a => a.traction.currentRatingsPerDay !== null
+      ? [a.traction.currentRatingsPerDay, 'current']
+      : [a.traction.lifetimeRatingsPerDay, 'lifetime'];
+
+    const ranking = [];
+    top10.forEach(a => {
+      const [rate, basis] = bestRate(a);
+      if (rate === null || rate === undefined) return;
+      ranking.push({ name: a.name, ratingCount: a.ratingCount, ratingsPerDay: rate, basis,
+        momentum: a.traction.momentum, accelerating: a.traction.accelerating });
+    });
+    ranking.sort((a, b) => b.ratingsPerDay - a.ratingsPerDay);
+    const risers = ranking.filter(x => typeof x.ratingCount === 'number'
+      && x.ratingCount < riserMax && x.ratingsPerDay >= RISER_MIN_RATE);
+    const headline = cur.length ? median(cur) : (life.length ? median(life) : null);
+
+    return {
+      medianLifetimeRatingsPerDay: life.length ? r(median(life), 3) : null,
+      medianCurrentRatingsPerDay: cur.length ? r(median(cur), 3) : null,
+      acceleratingCount: cur.length ? accel.length : null,
+      smallRisers: risers, smallRiserCount: risers.length,
+      growthRanking: ranking, riserMaxRatings: riserMax, riserMinRate: RISER_MIN_RATE,
+      hasTimeSeries: !!cur.length,
+      estimateBasis: cur.length ? 'current velocity' : 'lifetime average',
+      estimatedDownloads: estimateDownloads(headline, calib)
+    };
+  }
+
+  function opportunity(demand, comp, productFit, commercialIntent, apps) {
+    const ev = comp ? S.rankEvidence(comp) : null;
+    if (demand.score === null || demand.score === undefined || !ev) {
+      return {
+        score: null,
+        reason: 'Withheld: ' + ((demand.score === null || demand.score === undefined)
+          ? 'no demand signal.' : 'no usable SERP rating distribution.'),
+        factors: null
+      };
+    }
+    const weak = apps ? listingWeakness(apps) : null;
+    const factors = {
+      demand: { raw: demand.score, norm: demand.score / 5, kind: 'objective',
+        role: 'gate', note: demand.signal },
+      smallAppsCanRank: { raw: r(ev.value * 5, 2), norm: ev.value, kind: 'objective',
+        role: 'gate', components: ev.components,
+        note: `Entry bar around ${ev.entryBarP25} ratings (lowest on the page: ${ev.entryBarMin})`
+          + (ev.bestPositionBelowMedian ? `, a below-median app reaches #${ev.bestPositionBelowMedian}.` : '.') },
+      productFit: { raw: productFit, norm: (productFit || 0) / 5, kind: 'subjective',
+        role: 'gate', note: 'Your rating.' },
+      commercialIntent: { raw: commercialIntent, norm: (commercialIntent || 0) / 5,
+        kind: 'subjective', role: 'gate', note: 'Your rating.' }
+    };
+    if (weak) factors.listingWeakness = {
+      raw: `${weak.appsWithWeakness}/${weak.sampleSize} weak listings`,
+      norm: weak.modifier, kind: 'objective', role: 'modifier', note: weak.formula
+    };
+
+    if (productFit === null || productFit === undefined
+        || commercialIntent === null || commercialIntent === undefined) {
+      return { score: null,
+        reason: 'Withheld: rate PRODUCT FIT and COMMERCIAL INTENT (1-5) to compute.', factors };
+    }
+
+    let core = 1;
+    ['demand', 'smallAppsCanRank', 'productFit', 'commercialIntent']
+      .forEach(k => { core *= Math.max(factors[k].norm, 0); });
+    const modifier = weak ? weak.modifier : 1;
+    const score = r(Math.min(core * modifier, 1) * 100, 0);
+
+    let band = score >= 30 ? 'STRONG' : (score >= 15 ? 'WORTH A LOOK' : 'WEAK');
+    let gated = null;
+    if (band === 'STRONG' && (demand.confidence === 'LOW' || demand.confidence === 'UNKNOWN')) {
+      band = 'WORTH A LOOK';
+      gated = `Capped below STRONG: demand confidence is ${demand.confidence}. ` +
+              'Get a real demand signal first.';
+    }
+    return { score, band, bandGate: gated, factors, confidence: demand.confidence,
+      listingWeakness: weak,
+      competitorStrengthContext: (comp.strength || {}).score,
+      formula: '100 * demand * smallAppsCanRank * productFit * commercialIntent * listingWeaknessModifier',
+      caveat: 'Two of four gates are your own subjective ratings. The score RANKS candidates - ' +
+              'it measures nothing. Read the Top-10 distribution before trusting it.' };
+  }
+
+  const REVIEW_THEMES = {
+    'SUBSCRIPTION / PRICING COMPLAINTS': ['subscription', 'expensive', 'paywall', 'refund',
+      'free trial', 'charged', 'cancel', 'per month', 'rip off', 'ripoff', 'overpriced',
+      'pay wall', 'money', 'price', 'not free', 'scam'],
+    'COMMON COMPLAINTS': ['crash', 'bug', 'buggy', 'freeze', 'froze', 'glitch', 'broken',
+      "doesn't work", 'does not work', "won't load", 'error', 'stuck', 'useless',
+      'disappointed', 'repetitive', 'generic', 'boring', 'annoying', 'laggy'],
+    'COMMON REQUESTS': ['wish', 'would love', 'please add', 'hope you add', 'feature request',
+      'needs a', 'should have', 'would be nice', 'suggestion', 'please make'],
+    'MISSING FEATURES': ['offline', 'download', 'apple watch', 'widget', 'dark mode', 'timer',
+      'customize', 'customise', 'custom', 'alarm', 'reminder', 'ipad', 'sync', 'export',
+      'no way to', "can't add", 'cannot add'],
+    'WHAT USERS LOVE': ['love', 'amazing', 'helped', 'life changing', 'life-changing', 'best',
+      'perfect', 'grateful', 'excellent', 'wonderful', 'obsessed', 'favorite', 'favourite',
+      'game changer']
+  };
+
+  function mineReviews(reviews) {
+    const buckets = {};
+    Object.keys(REVIEW_THEMES).forEach(k => { buckets[k] = []; });
+    reviews.forEach(rv => {
+      const text = `${rv.title || ''} ${rv.body || ''}`.toLowerCase();
+      Object.entries(REVIEW_THEMES).forEach(([theme, needles]) => {
+        const hit = needles.find(n => text.includes(n));
+        if (hit) buckets[theme].push({ matched: hit, rating: rv.rating, title: rv.title,
+          excerpt: (rv.body || '').slice(0, 320) });
+      });
+    });
+    const ratings = reviews.map(x => x.rating).filter(Boolean);
+    const breakdown = {};
+    if (ratings.length) for (let s = 1; s <= 5; s++)
+      breakdown[s] = ratings.filter(x => x === s).length;
+    const themes = {};
+    Object.entries(buckets).forEach(([k, v]) => {
+      themes[k] = { count: v.length, samples: v.slice(0, 8) };
+    });
+    return {
+      method: 'Literal keyword matching against fixed word lists - NOT AI analysis and NOT ' +
+              'sentiment analysis. Every match shows the exact word that triggered it.',
+      reviewsAnalysed: reviews.length,
+      ratingBreakdown: ratings.length ? breakdown : null,
+      negativeShare: ratings.length
+        ? r(100 * ratings.filter(x => x <= 2).length / ratings.length, 0) : null,
+      themes,
+      coverageCaveat: "Apple's public feed serves only the ~500 most recent US reviews. " +
+                      'This is a recency-biased sample, not the full review history.'
+    };
+  }
+
+  Object.assign(S, { productSignals, listingWeakness, assessDemand, estimateDownloads,
+    ratingRateBand, traction, tractionSummary, opportunity, mineReviews, REVIEW_THEMES,
+    DEFAULT_RISER_MAX_RATINGS, RISER_MIN_RATE });
+
+  
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>/*
+ * App Opportunity Scout - browser build
+ * =====================================
+ * Talks to Apple directly from the page. itunes.apple.com sends no CORS
+ * headers, so every call is JSONP (a <script> tag with ?callback=), which is
+ * GET-only and cannot set request headers. That is exactly why the autocomplete
+ * demand tier is unavailable here - it requires X-Apple-Store-Front.
+ *
+ * All state lives in this browser's localStorage. Nothing is uploaded.
+ */
+(function () {
+  'use strict';
+  const S = window.ScoutScoring;
+  const $ = s => document.querySelector(s);
+
+  const SEED = ['guided visualization','visualization','visualization app','guided imagery',
+    'mental rehearsal','future self','success visualization','confidence visualization',
+    'manifestation visualization','mindset','mindset coach','motivation','motivation coach',
+    'daily motivation','confidence','confidence coach','self confidence','manifestation',
+    'affirmations','mental reset','mindset reset','focus','focus coach','procrastination',
+    'overthinking','creative block','inspiration','discipline','personal growth','life coach'];
+
+  const KEY = 'scout.v1';
+  const CACHE_TTL = 7 * 24 * 3600 * 1000;
+  const SPACING = 3500;               // Apple allows ~20 req/min per IP
+  const SERP_DEPTH = 20;
+
+  let DB = { keywords: {}, results: {}, history: {}, cache: {}, calibration: [] };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) DB = Object.assign(DB, JSON.parse(raw));
+    } catch (e) { /* private mode or blocked storage - run in memory */ }
+    if (!Object.keys(DB.keywords).length)
+      SEED.forEach(k => { DB.keywords[k] = { productFit: null, commercialIntent: null }; });
+  }
+
+  let storageWarned = false;
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(DB));
+      const kb = Math.round(JSON.stringify(DB).length / 1024);
+      $('#storage').textContent = `${Object.keys(DB.results).length} researched · ${kb} KB stored locally`;
+    } catch (e) {
+      if (!storageWarned) {
+        storageWarned = true;
+        alert('Browser storage is full or blocked, so results cannot be saved between visits.\n\n' +
+              'Export to JSON now to keep this research. Deleting keywords you no longer need ' +
+              'frees space.');
+      }
+    }
+  }
+
+  /* ---- JSONP with rate limiting and a 7-day cache ---------------------- */
+  let queue = Promise.resolve(), lastCall = 0;
+  function jsonp(url, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const cb = 'scoutcb_' + Math.random().toString(36).slice(2);
+      const script = document.createElement('script');
+      const timer = setTimeout(() => { cleanup(); reject(new Error(
+        'Timed out. Apple may be rate-limiting - wait a minute and retry.')); }, timeoutMs || 20000);
+      function cleanup() {
+        clearTimeout(timer);
+        try { delete window[cb]; } catch (e) { window[cb] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+      window[cb] = data => { cleanup(); resolve(data); };
+      script.onerror = () => { cleanup(); reject(new Error(
+        'Apple refused the request (usually rate limiting after too many calls). Wait a minute.')); };
+      script.src = url + (url.includes('?') ? '&' : '?') + 'callback=' + cb;
+      document.head.appendChild(script);
+    });
+  }
+
+  function fetchCached(url, force) {
+    const hit = DB.cache[url];
+    if (!force && hit && Date.now() - hit.t < CACHE_TTL) return Promise.resolve(hit.d);
+    queue = queue.then(() => {
+      const wait = Math.max(0, SPACING - (Date.now() - lastCall));
+      return new Promise(res => setTimeout(res, wait));
+    }).then(() => {
+      lastCall = Date.now();
+      return jsonp(url);
+    }).then(d => {
+      DB.cache[url] = { t: Date.now(), d };
+      // Cache can outgrow storage; drop the oldest entries rather than fail.
+      const keys = Object.keys(DB.cache);
+      if (keys.length > 300) {
+        keys.sort((a, b) => DB.cache[a].t - DB.cache[b].t).slice(0, 100)
+            .forEach(k => delete DB.cache[k]);
+      }
+      return d;
+    });
+    return queue;
+  }
+
+  const serpUrl = kw => 'https://itunes.apple.com/search?' + new URLSearchParams({
+    term: kw, country: 'us', media: 'software', entity: 'software', limit: SERP_DEPTH });
+  const reviewUrl = (id, page) =>
+    `https://itunes.apple.com/us/rss/customerreviews/page=${page}/id=${id}/sortby=mostrecent/json`;
+
+  function recordSnapshots(apps) {
+    const now = Math.round(Date.now() / 1000);
+    apps.forEach(a => {
+      if (a.trackId === null || typeof a.ratingCount !== 'number') return;
+      const k = String(a.trackId);
+      const series = DB.history[k] || (DB.history[k] = []);
+      if (series.length) {
+        const last = series[series.length - 1];
+        if (now - last[0] < 6 * 3600 && last[1] === a.ratingCount) return;
+      }
+      series.push([now, a.ratingCount, a.rating]);
+      if (series.length > 200) series.splice(0, series.length - 200);
+    });
+  }
+
+  /* ---- research run ---------------------------------------------------- */
+  let running = false;
+  async function research(keywords, force) {
+    running = true;
+    const log = [];
+    const box = $('#progress'); box.style.display = 'block';
+    $('#run').disabled = true;
+    log.push('Apple Ads popularity unavailable in the browser build. Demand confidence tops out at LOW.');
+
+    for (let i = 0; i < keywords.length; i++) {
+      const kw = keywords[i];
+      $('#ptitle').textContent = `Researching ${i + 1}/${keywords.length} — ${kw}`;
+      $('#plog').innerHTML = log.slice(-40).reverse().map(esc).join('<br>');
+      try {
+        const payload = await fetchCached(serpUrl(kw), force);
+        const apps = (payload.results || []).map((raw, n) => S.normaliseApp(raw, n + 1, kw));
+        if (!apps.length) {
+          DB.results[kw] = { error: 'Apple returned no apps for this keyword.', apps: [] };
+          log.push(`[${kw}] no results`);
+        } else {
+          const comp = S.analyseCompetition(apps, kw);
+          recordSnapshots(apps);
+          const trac = S.tractionSummary(apps, DB.history, riserCap(), DB.calibration);
+          const dem = S.assessDemand(kw, comp, {});
+          DB.results[kw] = { apps, competition: comp, demand: dem, traction: trac,
+            meta: { source: 'iTunes Search API (JSONP)', fetchedAt: new Date().toISOString(),
+              resultCount: payload.resultCount,
+              rankingCaveat: 'iTunes Search API relevance order - a proxy for the App Store SERP, not identical to it.' },
+            error: null };
+          log.push(`[${kw}] ${apps.length} apps | competition ${(comp.strength || {}).score} | demand ${dem.confidence}`);
+        }
+      } catch (err) {
+        DB.results[kw] = { error: String(err.message || err), apps: [] };
+        log.push(`[${kw}] FAILED: ${err.message || err}`);
+      }
+      save();
+      render();
+    }
+    $('#ptitle').textContent = `Finished ${keywords.length} keyword` +
+      `${keywords.length === 1 ? '' : 's'}.`;
+    $('#plog').innerHTML = log.slice(-40).reverse().map(esc).join('<br>');
+    $('#run').disabled = false;
+    running = false;
+    render();
+  }
+
+  /* ---- row assembly (mirrors Session.row in scout.py) ------------------ */
+  function row(kw) {
+    const meta = DB.keywords[kw] || {};
+    const res = DB.results[kw];
+    const base = { keyword: kw, researched: false, productFit: meta.productFit,
+      commercialIntent: meta.commercialIntent, demand: null, demandConfidence: 'UNKNOWN',
+      ladder: [], entryBar: null, entryBarMin: null, bestPosSmall: null, rankEvidence: null,
+      medianTop10Ratings: null, top10Under500: null, under100: null, under1000: null,
+      over10000: null, avgRatingCount: null, dominant: null, opportunity: null,
+      opportunityBand: null, riserPairs: [], smallRisers: null, tractionPerDay: null,
+      error: null };
+    if (!res) return base;
+    if (res.error && !(res.apps || []).length) return Object.assign(base, { error: res.error });
+
+    const c = res.competition || {}, d = res.demand || {}, t = res.traction || {};
+    const pen = c.penetration || {}, str = c.strength || {};
+    const opp = S.opportunity(d, c, meta.productFit, meta.commercialIntent, res.apps);
+    const dom = c.dominantIncumbent;
+    return Object.assign(base, {
+      researched: true,
+      demand: d.score, demandConfidence: d.confidence, demandSignal: d.signal,
+      ladder: (pen.ladder || []).map(x => x.ratingCount),
+      entryBar: pen.entryBarP25, entryBarMin: pen.entryBarMin,
+      bestPosSmall: pen.bestPositionBelowMedian,
+      bestPosUnder1000: pen.bestPositionUnder1000,
+      rankEvidence: (S.rankEvidence(c) || {}).value,
+      competition: str.score, competitionBand: str.band,
+      medianTop10Ratings: c.medianRatingCount, avgRatingCount: c.avgRatingCount,
+      top10Under500: c.under500, pctUnder500: c.pctUnder500,
+      under100: c.under100, under1000: c.under1000, over10000: c.over10000,
+      avgStars: c.avgStars,
+      dominant: dom ? `${dom.name} (${dom.ratingCount.toLocaleString()})` : null,
+      riserPairs: (t.growthRanking || []).filter(x => typeof x.ratingCount === 'number')
+        .map(x => [x.ratingCount, x.ratingsPerDay]),
+      smallRisers: t.smallRiserCount,
+      tractionPerDay: t.hasTimeSeries ? t.medianCurrentRatingsPerDay : t.medianLifetimeRatingsPerDay,
+      tractionBasis: t.estimateBasis,
+      opportunity: opp.score, opportunityBand: opp.band, opportunityReason: opp.reason,
+      fetchedAt: (res.meta || {}).fetchedAt, error: res.error
+    });
+  }
+
+  window.ScoutApp = { DB, load, save, research, row, fetchCached, reviewUrl, jsonp,
+    get running() { return running; } };
+})();
+
+/* UI layer for the browser build. Column set and detail view mirror the local
+ * dashboard; data comes from local computation instead of a server. */
+(function () {
+  'use strict';
+  const S = window.ScoutScoring, A = window.ScoutApp, DB = A.DB;
+  const $ = s => document.querySelector(s);
+  let sortKey = 'opportunity', sortDir = -1;
+
+  const esc = s => String(s ?? '').replace(/[&<>"]/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  window.esc = esc;
+  const na = t => `<span class="na" title="${esc(t || 'Not available')}">&mdash;</span>`;
+  const dot = c => `<span class="dot ${c}"></span>`;
+  const demandColor = v => v >= 3 ? 'g' : v >= 1.8 ? 'y' : 'r';
+  const rankColor = v => v >= 0.30 ? 'g' : v >= 0.12 ? 'y' : 'r';
+  const oppColor = v => v >= 30 ? 'g' : v >= 15 ? 'y' : 'r';
+  const abbr = n => n == null ? '—' : (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M'
+    : n >= 1e3 ? Math.round(n / 1e3) + 'k' : Math.round(n));
+  const RISER_MIN_RATE = 0.3;
+  window.riserCap = () => +(($('#cap') || {}).value || 500);
+  const risersFor = r => !r.riserPairs ? r.smallRisers
+    : r.riserPairs.filter(([rc, rate]) => rc < window.riserCap() && rate >= RISER_MIN_RATE).length;
+
+  function ladder(r) {
+    if (!r.ladder || !r.ladder.length) return na('Run research');
+    return '<span class="ladder">' + r.ladder.map(c =>
+      `<i class="${c < 1000 ? 'sm' : ''}">${abbr(c)}</i>`).join('<u>·</u>') + '</span>';
+  }
+  function rater(kw, field, val) {
+    let h = '<div class="rate">';
+    for (let i = 1; i <= 5; i++)
+      h += `<b class="${val === i ? 'on' : ''}" data-kw="${esc(kw)}" data-f="${field}" data-v="${i}">${i}</b>`;
+    return h + '</div>';
+  }
+
+  const COLS = [
+    { k: 'keyword', t: 'Keyword', cls: 'kw' },
+    { k: 'demand', t: 'Demand', cls: 'num', fmt: v => v == null ? na() : dot(demandColor(v)) + v.toFixed(1) },
+    { k: 'demandConfidence', t: 'Conf.', fmt: v => `<span class="chip">${(v || 'UNKNOWN').slice(0, 3)}</span>` },
+    { k: 'ladder', t: 'Top-10 ratings, in rank order', val: r => r.ladder ? r.ladder.length : 0, fmt: (v, r) => ladder(r) },
+    { k: 'entryBar', t: 'Entry bar', cls: 'num',
+      fmt: (v, r) => v == null ? na() : `<span title="25th pct; lowest on page: ${r.entryBarMin}">${abbr(v)}</span>` },
+    { k: 'rankEvidence', t: 'Small can rank', cls: 'num', fmt: v => v == null ? na() : dot(rankColor(v)) + v.toFixed(2) },
+    { k: 'bestPosSmall', t: 'Best small pos', cls: 'num', fmt: v => v == null ? na('No app below the field median') : '#' + v },
+    { k: 'medianTop10Ratings', t: 'Median', cls: 'num', fmt: v => v == null ? na() : abbr(v) },
+    { k: 'top10Under500', t: '<500', cls: 'num', fmt: v => v == null ? na() : `${v}/10` },
+    { k: 'dominant', t: 'Dominant (info only)',
+      fmt: v => v ? `<span class="na" style="font-size:11.5px">${esc(v)}</span>` : '<span class="na">none</span>' },
+    { k: 'smallRisers', t: 'Rising', cls: 'num', val: r => r.researched ? risersFor(r) : null,
+      fmt: (v, r) => { const n = r.researched ? risersFor(r) : null;
+        return n == null ? na() : (n > 0 ? dot('g') + n : '<span class="na">0</span>'); } },
+    { k: 'productFit', t: 'Fit', fmt: (v, r) => rater(r.keyword, 'productFit', v) },
+    { k: 'commercialIntent', t: 'Intent', fmt: (v, r) => rater(r.keyword, 'commercialIntent', v) },
+    { k: 'opportunity', t: 'Opportunity', cls: 'num opp',
+      fmt: (v, r) => v == null ? na(r.opportunityReason) : dot(oppColor(v)) + v },
+  ];
+
+  function rows() {
+    const f = ($('#filter').value || '').trim().toLowerCase(), only = $('#only').value;
+    return Object.keys(DB.keywords).map(A.row).filter(r => {
+      if (f && !r.keyword.includes(f)) return false;
+      if (only === 'done' && !r.researched) return false;
+      if (only === 'todo' && r.researched) return false;
+      if (only === 'scored' && r.opportunity == null) return false;
+      return true;
+    }).sort((a, b) => {
+      const col = COLS.find(c => c.k === sortKey);
+      let x = col && col.val ? col.val(a) : a[sortKey];
+      let y = col && col.val ? col.val(b) : b[sortKey];
+      if (typeof x === 'string' || typeof y === 'string')
+        return String(x ?? '').localeCompare(String(y ?? '')) * sortDir;
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return (x - y) * sortDir;
+    });
+  }
+
+  function render() {
+    $('#head').innerHTML = COLS.map(c => {
+      const ar = sortKey === c.k ? `<span class="ar">${sortDir > 0 ? '▲' : '▼'}</span>` : '';
+      return `<th data-k="${c.k}">${c.t} ${ar}</th>`;
+    }).join('');
+    $('#head').querySelectorAll('th').forEach(th => th.onclick = () => {
+      const k = th.dataset.k;
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = (k === 'keyword') ? 1 : -1; }
+      render();
+    });
+    const rs = rows();
+    $('#empty').style.display = rs.length ? 'none' : 'block';
+    $('#rows').innerHTML = rs.map(r => '<tr>' + COLS.map(c => {
+      const v = c.val ? c.val(r) : r[c.k];
+      const inner = c.fmt ? c.fmt(v, r) : (v == null ? na() : esc(v));
+      return `<td class="${c.cls || ''}" ${c.cls === 'kw' ? `data-open="${esc(r.keyword)}"` : ''}>${inner}</td>`;
+    }).join('') + '</tr>').join('');
+
+    $('#rows').querySelectorAll('[data-open]').forEach(td => td.onclick = ev => {
+      if (ev.shiftKey) {
+        const kw = td.dataset.open;
+        if (confirm(`Delete "${kw}"?`)) {
+          delete DB.keywords[kw]; delete DB.results[kw]; A.save(); render();
+        }
+        return;
+      }
+      openDetail(td.dataset.open);
+    });
+    $('#rows').querySelectorAll('.rate b').forEach(b => b.onclick = ev => {
+      ev.stopPropagation();
+      const cur = DB.keywords[b.dataset.kw][b.dataset.f];
+      DB.keywords[b.dataset.kw][b.dataset.f] = cur === +b.dataset.v ? null : +b.dataset.v;
+      A.save(); render();
+    });
+    A.save();
+  }
+  window.render = render;
+  window.openDetail = openDetail;
+
+  function openDetail(kw) {
+    const res = DB.results[kw];
+    $('#overlay').classList.add('open');
+    if (!res || (res.error && !(res.apps || []).length)) {
+      $('#sheet').innerHTML = `<button class="close" onclick="closeDetail()">Close</button>
+        <h2>${esc(kw)}</h2><div class="note">${esc((res && res.error) || 'Not researched yet.')}</div>`;
+      return;
+    }
+    const meta = DB.keywords[kw] || {};
+    const c = res.competition || {}, pen = c.penetration || {}, str = c.strength || {};
+    const dem = res.demand || {}, tr = res.traction || {};
+    const opp = S.opportunity(dem, c, meta.productFit, meta.commercialIntent, res.apps);
+    const est = tr.estimatedDownloads;
+
+    const demandCard = `<div class="card">
+      <div class="kv">
+        <div><span>Demand band</span><b>${dem.score == null ? 'UNKNOWN' : dem.score.toFixed(1) + ' / 5'}</b></div>
+        <div><span>Confidence</span><b>${esc(dem.confidence)}</b></div>
+        <div><span>Search volume</span><b class="na">UNAVAILABLE</b></div>
+      </div>
+      <div class="why"><b>Signal:</b> ${esc(dem.signal)}<br><b>Why:</b> ${esc(dem.why)}<br>
+        <b>Volume:</b> ${esc(dem.searchVolumeNote)}</div></div>`;
+
+    const oppBars = opp.factors ? Object.entries(opp.factors).map(([k, f]) => `
+      <div class="brow"><span>${esc(k.replace(/([A-Z])/g, ' $1').toLowerCase())}
+        <span class="chip">${f.kind}</span>${f.role === 'modifier' ? ' <span class="chip">modifier</span>' : ''}</span>
+        <div class="track"><div class="fill ${f.kind === 'objective' ? 'obj' : ''}"
+          style="width:${Math.min(100, Math.max(0, f.norm * 100))}%"></div></div>
+        <span class="num">${f.raw == null ? '—' : f.raw}</span></div>
+      ${f.note ? `<div class="why" style="margin:1px 0 5px 130px;font-size:11.5px">${esc(f.note)}</div>` : ''}`).join('') : '';
+
+    const oppCard = `<div class="card">
+      <div class="kv">
+        <div><span>Opportunity</span><b style="font-size:19px">${opp.score ?? '—'}</b></div>
+        <div><span>Verdict</span><b>${opp.band ? `<span class="chip">${opp.band}</span>` : '<span class="na">withheld</span>'}</b></div>
+        <div><span>Demand confidence</span><b>${esc(opp.confidence || dem.confidence)}</b></div>
+      </div>
+      ${opp.reason ? `<div class="why">${esc(opp.reason)}</div>` : ''}
+      ${opp.bandGate ? `<div class="why" style="color:var(--yellow)">⚠ ${esc(opp.bandGate)}</div>` : ''}
+      <div class="bars">${oppBars}</div>
+      ${opp.formula ? `<pre>${esc(opp.formula)}\n\nFour GATES multiply; listing weakness is a MODIFIER (0.85-1.25).\n"Small apps can rank" comes from the observed distribution - a large\nincumbent does NOT reduce it. ${esc(opp.caveat)}</pre>` : ''}</div>`;
+
+    const distCard = `<div class="card">
+      <div class="why" style="margin:0 0 10px"><b>This is the evidence.</b> Rating count is a proxy
+        for competitor <b>traction</b> — not keyword difficulty, not downloads, not search demand.</div>
+      <table style="font-size:12.5px"><thead><tr><th>Pos</th><th>App</th><th class="num">Ratings</th>
+        <th class="num">Stars</th><th class="num">Age</th><th class="num">Updated</th></tr></thead>
+      <tbody>${res.apps.slice(0, 10).map(a => {
+        const sm = a.ratingCount != null && a.ratingCount < 1000;
+        return `<tr><td class="num">#${a.position}</td>
+          <td>${esc(a.name)}${sm ? ' <span class="chip" style="color:var(--green)">SMALL</span>' : ''}</td>
+          <td class="num" style="${sm ? 'color:var(--green);font-weight:650' : ''}">${a.ratingCount != null ? a.ratingCount.toLocaleString() : '—'}</td>
+          <td class="num">${a.rating != null ? a.rating.toFixed(1) : '—'}</td>
+          <td class="num">${a.ageDays != null ? (a.ageDays / 365).toFixed(1) + 'y' : '—'}</td>
+          <td class="num">${a.daysSinceUpdate != null ? a.daysSinceUpdate + 'd' : '—'}</td></tr>`;
+      }).join('')}</tbody></table>
+      <div class="kv" style="margin-top:13px">
+        <div><span>Entry bar (25th pct)</span><b>${pen.entryBarP25 != null ? Math.round(pen.entryBarP25).toLocaleString() : '—'}</b></div>
+        <div><span>Lowest that still ranks</span><b>${pen.entryBarMin != null ? pen.entryBarMin.toLocaleString() : '—'}</b></div>
+        <div><span>Field median</span><b>${pen.fieldMedian != null ? Math.round(pen.fieldMedian).toLocaleString() : '—'}</b></div>
+        <div><span>Average</span><b>${c.avgRatingCount != null ? Math.round(c.avgRatingCount).toLocaleString() : '—'}</b></div>
+        <div><span>Under 100</span><b>${c.under100 ?? '—'}</b></div>
+        <div><span>Under 500</span><b>${c.under500 ?? '—'}</b></div>
+        <div><span>Under 1,000</span><b>${c.under1000 ?? '—'}</b></div>
+        <div><span>Over 10,000</span><b>${c.over10000 ?? '—'}</b></div>
+        <div><span>Positions under 1,000</span><b>${(pen.positionsUnder1000 || []).map(x => '#' + x).join(' ') || '<span class="na">none</span>'}</b></div>
+        <div><span>Best pos below median</span><b>${pen.bestPositionBelowMedian ? '#' + pen.bestPositionBelowMedian : '—'}</b></div>
+        <div><span>Under-1,000 in top 5</span><b>${pen.inTop5Under1000 ?? '—'}</b></div>
+        <div><span>Size↔rank correlation</span><b>${pen.sizeRankCorrelation ?? '—'}</b></div>
+      </div>
+      ${c.dominantIncumbent ? `<div class="why"><b>Dominant incumbent:</b> ${esc(c.dominantIncumbent.name)}
+        at ${c.dominantIncumbent.ratingCount.toLocaleString()} ratings — ${c.dominantIncumbent.multipleOfFieldMedian}×
+        the rest of the field. <b>This does not reduce the score.</b></div>` : '<div class="why">No dominant incumbent flagged.</div>'}
+      <div class="bars">${str.components ? Object.entries(str.components).map(([k, v]) => `
+        <div class="brow"><span>${esc(k.replace(/([A-Z])/g, ' $1').toLowerCase())}</span>
+        <div class="track"><div class="fill obj" style="width:${v / 25 * 100}%"></div></div>
+        <span class="num">${v}</span></div>`).join('') : ''}</div>
+      <div class="why">Competitor strength ${str.score ?? '—'}/100 (${str.band || '—'}) — context only,
+        not part of the opportunity score.</div></div>`;
+
+    const tractionCard = `<div class="card">
+      <div class="kv">
+        <div><span>Median ratings/day</span><b>${tr.medianCurrentRatingsPerDay ?? tr.medianLifetimeRatingsPerDay ?? '—'}</b></div>
+        <div><span>Basis</span><b><span class="chip">${tr.hasTimeSeries ? 'MEASURED' : 'LIFETIME AVG'}</span></b></div>
+        <div><span>Small apps rising</span><b>${tr.smallRiserCount ?? '—'}</b></div>
+        <div><span>Accelerating now</span><b>${tr.acceleratingCount ?? '<span class="na">needs 2 runs</span>'}</b></div>
+      </div>
+      ${!tr.hasTimeSeries ? `<div class="why">Only one observation so far, so these are lifetime
+        averages. Re-run in a few days and measured velocity replaces them.</div>` : ''}
+      ${(tr.growthRanking || []).length ? `<div style="margin-top:13px">
+        <b style="font-size:11px;letter-spacing:.05em;color:var(--muted)">GROWTH LEADERBOARD — every app, any size</b>
+        <table style="margin-top:7px;font-size:12.5px"><thead><tr><th>App</th><th class="num">Ratings</th>
+          <th class="num">Per day</th><th class="num">Momentum</th></tr></thead>
+        <tbody>${tr.growthRanking.map(g => `<tr>
+          <td>${esc(g.name)}${g.accelerating ? ' <span class="chip">ACCEL</span>' : ''}</td>
+          <td class="num">${g.ratingCount != null ? g.ratingCount.toLocaleString() : '—'}</td>
+          <td class="num">${g.ratingsPerDay}</td>
+          <td class="num">${g.momentum != null ? g.momentum + '×' : '<span class="na">—</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      ${est ? `<div class="card" style="border-style:dashed;margin:13px 0 0;background:transparent">
+        <div class="kv">
+          <div><span>Est. downloads/day</span><b>${est.perDayLow.toLocaleString()} – ${est.perDayHigh.toLocaleString()}</b></div>
+          <div><span>Est. downloads/month</span><b>${est.perMonthLow.toLocaleString()} – ${est.perMonthHigh.toLocaleString()}</b></div>
+          <div><span>Status</span><b><span class="chip">${est.calibrationPairs ? 'CALIBRATED' : 'UNCALIBRATED'}</span></b></div>
+        </div>
+        <div class="why" style="color:var(--yellow)">⚠ <b>ESTIMATE — the weakest number here.</b>
+          ${esc(est.health)}. ${esc(est.assumption)}.</div>
+        <div class="why">${esc(est.warning)}</div></div>` : ''}
+      <div class="why" style="margin-top:10px"><b>Revenue is not estimated anywhere in this tool.</b>
+        It would need downloads × free-to-paid conversion × retention, and conversion is
+        unobservable for any app but your own.</div></div>`;
+
+    const appsCard = `<div class="card">
+      <div class="why" style="margin:0 0 8px">${esc((res.meta || {}).rankingCaveat)}
+        Fetched ${esc((res.meta || {}).fetchedAt)}.</div>
+      ${res.apps.map(a => {
+        const ps = S.productSignals(a);
+        return `<div class="app">
+          <img src="${esc(a.icon || '')}" alt="" onerror="this.style.visibility='hidden'">
+          <div class="m"><div class="t">${a.position}. ${esc(a.name)}
+            ${a.exactMatchInTitle ? '<span class="chip">EXACT IN TITLE</span>' : ''}</div>
+            <div class="d">${esc(a.developer)} · ${esc(a.category)} ·
+              ${a.rating != null ? a.rating.toFixed(1) + '★' : 'no rating'} ·
+              ${a.ratingCount != null ? a.ratingCount.toLocaleString() + ' ratings' : '<span class="na">n/a</span>'} ·
+              ${esc(a.formattedPrice)} ·
+              ${a.ageDays != null ? (a.ageDays / 365).toFixed(1) + 'y old' : 'age unknown'} ·
+              ${a.daysSinceUpdate != null ? 'updated ' + a.daysSinceUpdate + 'd ago' : ''}</div>
+            ${ps.weaknessFlags.map(f => `<div class="flag">▸ ${esc(f)}</div>`).join('')}
+            <div style="margin-top:6px">
+              ${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">Open listing ↗</a>` : ''}
+              ${a.trackId ? ` · <a href="#" onclick="loadReviews('${esc(kw)}',${a.trackId},this);return false">Analyse reviews</a>` : ''}
+              · <span class="na">subtitle: not in public API</span></div>
+            <div class="revbox"></div></div></div>`;
+      }).join('')}</div>`;
+
+    $('#sheet').innerHTML = `<button class="close" onclick="closeDetail()">Close</button>
+      <h2>${esc(kw)}</h2><div class="sub">United States · Apple App Store (iPhone)</div>
+      <div class="step"><h3>Demand</h3>${demandCard}</div>
+      <div class="step"><h3>Opportunity summary</h3>${oppCard}</div>
+      <div class="step"><h3>Top-10 distribution — can small apps rank?</h3>${distCard}</div>
+      <div class="step"><h3>Traction — who is actually growing</h3>${tractionCard}</div>
+      <div class="step"><h3>Top apps (${res.apps.length})</h3>${appsCard}</div>`;
+    window.scrollTo(0, 0);
+  }
+
+  window.closeDetail = () => { $('#overlay').classList.remove('open'); render(); };
+
+  window.loadReviews = async function (kw, trackId, el) {
+    const box = el.closest('.m').querySelector('.revbox');
+    // 3 pages through the 3.5s rate limiter is ~10s; say so rather than
+    // leaving a spinner that looks hung.
+    box.innerHTML = '<div class="na" style="padding:8px 0">Fetching up to 150 recent reviews… ' +
+      'this takes about 10 seconds (Apple rate limit).</div>';
+    try {
+      const all = [];
+      for (let page = 1; page <= 3; page++) {
+        const data = await A.fetchCached(A.reviewUrl(trackId, page));
+        let entries = ((data || {}).feed || {}).entry || [];
+        if (!Array.isArray(entries)) entries = [entries];
+        entries.forEach(e => {
+          if (!e || !e['im:rating']) return;
+          all.push({ title: (e.title || {}).label, body: (e.content || {}).label,
+            rating: parseInt((e['im:rating'] || {}).label || 0, 10),
+            version: (e['im:version'] || {}).label });
+        });
+        if (entries.length < 2) break;
+      }
+      if (!all.length) { box.innerHTML = '<div class="na" style="padding:8px 0">No US reviews returned.</div>'; return; }
+      const a = S.mineReviews(all);
+      box.innerHTML = `<div class="card" style="margin-top:9px">
+        <div class="kv"><div><span>Reviews analysed</span><b>${a.reviewsAnalysed}</b></div>
+          <div><span>1-2 star share</span><b>${a.negativeShare != null ? a.negativeShare + '%' : '—'}</b></div></div>
+        ${Object.entries(a.themes).filter(([, v]) => v.count).map(([name, v]) => `
+          <div style="margin-top:11px"><b style="font-size:11px;letter-spacing:.05em;color:var(--muted)">${esc(name)} — ${v.count}</b>
+          ${v.samples.map(s => `<div class="why" style="margin-top:5px">${s.rating}★
+            <span class="chip">matched "${esc(s.matched)}"</span> ${esc(s.excerpt)}</div>`).join('')}</div>`).join('')
+          || '<div class="na">No themed matches.</div>'}
+        <div class="why" style="margin-top:12px"><b>Method:</b> ${esc(a.method)}</div>
+        <div class="why"><b>Coverage:</b> ${esc(a.coverageCaveat)}</div></div>`;
+    } catch (err) {
+      box.innerHTML = `<div class="na" style="padding:8px 0">${esc(err.message || err)}</div>`;
+    }
+  };
+
+  /* ---- exports --------------------------------------------------------- */
+  const CSV_COLS = [['keyword','KEYWORD'],['demand','DEMAND_0_5'],['demandConfidence','DEMAND_CONFIDENCE'],
+    ['demandSignal','DEMAND_SIGNAL'],['competition','COMPETITOR_STRENGTH_0_100'],
+    ['medianTop10Ratings','MEDIAN_TOP10_RATINGS'],['avgRatingCount','AVG_TOP10_RATINGS'],
+    ['entryBar','ENTRY_BAR_P25_RATINGS'],['entryBarMin','ENTRY_BAR_MIN_RATINGS'],
+    ['under100','TOP10_UNDER_100'],['top10Under500','TOP10_UNDER_500'],['pctUnder500','PCT_UNDER_500'],
+    ['under1000','TOP10_UNDER_1000'],['over10000','TOP10_OVER_10000'],
+    ['bestPosSmall','BEST_POSITION_BELOW_MEDIAN'],['bestPosUnder1000','BEST_POSITION_UNDER_1000'],
+    ['rankEvidence','SMALL_APPS_CAN_RANK_0_1'],['avgStars','AVG_STARS'],['dominant','DOMINANT_COMPETITOR'],
+    ['tractionPerDay','MEDIAN_TOP10_RATINGS_PER_DAY_OBSERVED'],['smallRisers','SMALL_APPS_GAINING_TRACTION'],
+    ['productFit','PRODUCT_FIT_1_5'],['commercialIntent','COMMERCIAL_INTENT_1_5'],
+    ['opportunity','OPPORTUNITY_0_100'],['opportunityBand','OPPORTUNITY_BAND'],['fetchedAt','FETCHED_AT']];
+
+  function download(name, text, type) {
+    const blob = new Blob([text], { type });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+  const q = v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+
+  window.exportCsv = () => {
+    const lines = [CSV_COLS.map(c => c[1]).join(',')];
+    lines.push(q('# search volume, keyword difficulty and revenue are UNAVAILABLE and deliberately absent')
+      + ','.repeat(CSV_COLS.length - 1));
+    Object.keys(DB.keywords).forEach(kw => {
+      const r = A.row(kw);
+      lines.push(CSV_COLS.map(([k]) => {
+        const v = r[k];
+        if (v != null) return q(v);
+        if (k === 'dominant' && r.researched) return 'NONE DETECTED';
+        if (!r.researched) return 'NOT RESEARCHED';
+        return 'UNAVAILABLE';
+      }).join(','));
+    });
+    download('app-opportunity-scout.csv', lines.join('\n'), 'text/csv');
+  };
+  window.exportJson = () => download('app-opportunity-scout.json', JSON.stringify({
+    tool: 'App Opportunity Scout (browser build)', exportedAt: new Date().toISOString(),
+    market: 'us', store: 'Apple App Store / iPhone',
+    unavailableMetrics: ['keyword search volume', 'keyword difficulty',
+      'revenue (needs unobservable free-to-paid conversion)', 'true App Store SERP rank'],
+    modelledMetrics: { ratingVelocity: 'OBSERVED - Apple rating counts sampled across runs.',
+      downloads: 'ESTIMATED RANGE ONLY - order of magnitude, not a measurement.' },
+    buildLimitation: 'Apple autocomplete needs a request header JSONP cannot set, so demand ' +
+      'confidence tops out at LOW in the browser build.',
+    keywords: DB.keywords, rows: Object.keys(DB.keywords).map(A.row), results: DB.results
+  }, null, 1), 'application/json');
+})();
+
+/* Event wiring + boot. Kept last so every helper is defined. */
+(function () {
+  'use strict';
+  const A = window.ScoutApp, $ = s => document.querySelector(s);
+  A.load();
+
+  $('#overlay').onclick = e => { if (e.target.id === 'overlay') window.closeDetail(); };
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') window.closeDetail(); });
+  $('#filter').oninput = window.render;
+  $('#only').onchange = window.render;
+  $('#cap').onchange = () => {
+    try { localStorage.setItem('scout.riserCap', $('#cap').value); } catch (e) {}
+    window.render();
+  };
+  try { const v = localStorage.getItem('scout.riserCap'); if (v) $('#cap').value = v; } catch (e) {}
+
+  $('#add').onclick = () => {
+    const raw = $('#newkw').value.trim();
+    if (!raw) return;
+    raw.split(/[\n,]/).map(s => s.trim().toLowerCase().replace(/\s+/g, ' ')).filter(Boolean)
+      .forEach(k => { if (!A.DB.keywords[k]) A.DB.keywords[k] = { productFit: null, commercialIntent: null }; });
+    $('#newkw').value = ''; A.save(); window.render();
+  };
+  $('#newkw').onkeydown = e => { if (e.key === 'Enter') $('#add').click(); };
+
+  $('#run').onclick = () => {
+    if (A.running) return;
+    const f = ($('#filter').value || '').trim().toLowerCase();
+    const list = Object.keys(A.DB.keywords).filter(k => !f || k.includes(f));
+    if (!list.length) return alert('No keywords to research.');
+    const mins = Math.ceil(list.length * 3.5 / 60);
+    if (!confirm(`Research ${list.length} keyword${list.length > 1 ? 's' : ''}?\n\n` +
+      `Apple allows about 20 requests a minute, so this takes roughly ${mins} minute` +
+      `${mins > 1 ? 's' : ''}. Already-cached keywords return instantly.\n\n` +
+      `Keep this tab open while it runs.`)) return;
+    A.research(list, false);
+  };
+
+  $('#csv').onclick = window.exportCsv;
+  $('#jsonx').onclick = window.exportJson;
+  $('#reset').onclick = () => {
+    if (!confirm('Clear ALL keywords, results and history in this browser?\n\n' +
+      'This cannot be undone. Export first if you want to keep it.')) return;
+    try { localStorage.removeItem('scout.v1'); } catch (e) {}
+    location.reload();
+  };
+
+  // file:// pages can still JSONP, but warn if opened over plain http where
+  // browsers block the https script as mixed content.
+  if (location.protocol === 'http:' && location.hostname !== 'localhost') {
+    const n = document.createElement('div');
+    n.className = 'note';
+    n.style.borderLeftColor = 'var(--red)';
+    n.innerHTML = '<b>Serve this over HTTPS.</b> On plain http:// the browser blocks Apple\'s ' +
+                  'https script as mixed content and no data will load.';
+    $('#banner').parentNode.insertBefore(n, $('#banner'));
+  }
+  window.render();
+})();
+</script>
+</body>
+</html>

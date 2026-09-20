@@ -4,6 +4,14 @@ Keyword opportunity research for the **US Apple App Store (iPhone)**.
 
 Answers one question: **which App Store search opportunity should I position my app around?**
 
+### Three ways to run it
+
+| | |
+|---|---|
+| **No install at all** | Open **[`web/standalone.html`](web/standalone.html)** — double-click it, or host it over HTTPS and use it from your phone. One self-contained file. *Demand confidence caps at LOW* (see `web/README.md`). |
+| **No typing** | Double-click **`Start Scout.command`** (Mac) / **`Start Scout.bat`** (Windows). Full fidelity. |
+| **Terminal** | `python3 scout.py` |
+
 **No terminal needed** — double-click **`Start Scout.command`** (Mac) or **`Start Scout.bat`**
 (Windows). It finds Python, picks a free port, opens your browser, and keeps running until you
 close the window. If Python is missing it tells you exactly what to click.

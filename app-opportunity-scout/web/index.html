@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App Opportunity Scout</title>
+<style>/*CSS*/</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>App Opportunity Scout</h1>
+  <span class="sub">United States &middot; Apple App Store (iPhone)</span>
+  <div class="spacer"></div>
+  <span class="sub" id="storage"></span>
+</header>
+
+<div class="note" id="banner">
+  <b>Browser build.</b> Everything runs on this page and stays in this browser &mdash; nothing is
+  uploaded anywhere. Apple is called directly via JSONP.
+  <b>Search volume, keyword difficulty and revenue are not shown at all.</b> Downloads appear
+  only as a wide <b>range</b> built on one assumption you control. App order is
+  <b>iTunes Search API relevance, not the live App Store ranking.</b> Rating count is a proxy for
+  competitor <b>traction</b> &mdash; not difficulty, downloads or demand.
+</div>
+
+<div class="note" id="demandwarn" style="border-left-color:var(--yellow)">
+  <b>One limit of this build.</b> Apple's autocomplete endpoint needs a request header that a
+  browser page cannot send, so <b>demand confidence tops out at LOW here</b> and is inferred from
+  how many competitors target the term. The local build reaches MEDIUM. Everything else &mdash;
+  the SERP distribution, competitor strength, traction, reviews &mdash; is identical.
+</div>
+
+<div class="bar">
+  <input type="text" id="newkw" placeholder="Add keyword, Enter to submit">
+  <button id="add">Add</button>
+  <input type="text" id="filter" placeholder="Filter keywords">
+  <select id="cap" title="Ceiling for counting an app as 'rising'.">
+    <option value="500">Rising: under 500 ratings</option>
+    <option value="1000">Rising: under 1,000</option>
+    <option value="2500">Rising: under 2,500</option>
+    <option value="10000">Rising: under 10,000</option>
+    <option value="999999999">Rising: any size</option>
+  </select>
+  <select id="only">
+    <option value="all">All keywords</option>
+    <option value="done">Researched</option>
+    <option value="todo">Not yet researched</option>
+    <option value="scored">Has opportunity score</option>
+  </select>
+  <div class="spacer"></div>
+  <button id="csv">CSV</button>
+  <button id="jsonx">JSON</button>
+  <button id="reset">Reset</button>
+  <button class="primary" id="run">Run research</button>
+</div>
+
+<div class="note" id="progress" style="display:none">
+  <b id="ptitle">Researching&hellip;</b>
+  <div class="log" id="plog"></div>
+</div>
+
+<table>
+  <thead><tr id="head"></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<div class="empty" id="empty" style="display:none">No keywords match this filter.</div>
+
+<div class="note" style="margin-top:22px">
+  <b>Reading the table.</b> Low competition is not opportunity. The question is
+  <b>&ldquo;can relatively small or new apps rank here?&rdquo;</b> &mdash; which is why the
+  Top-10 ladder is shown raw. A big incumbent at #1 does <b>not</b> disqualify a keyword: if
+  95- and 420-rating apps hold slots beside it, the door is open. Equally, a field of four
+  tiny apps is not automatically good &mdash; it may just have no demand.
+  <b>Under-500 is one signal, never a requirement.</b>
+  Shift-click a keyword to delete it.
+</div>
+
+</div>
+
+<div class="overlay" id="overlay"><div class="sheet" id="sheet"></div></div>
+
+<script>/*SCORING*/</script>
+<script>/*APP*/</script>
+</body>
+</html>
