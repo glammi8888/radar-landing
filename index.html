@@ -164,9 +164,9 @@ footer a{font-size:11px;color:var(--gray-text);text-decoration:none;letter-spaci
 footer a:hover{color:var(--pink-dark);}
 
 /* ===== ISSUE DECK =====
-   Swipeable stack of issue covers. Cover artwork is PLACEHOLDER: each .cover-art
-   is a CSS-drawn stand-in. To use real artwork, drop an <img> inside .cover-art
-   and delete the background rules on the .cover--* theme classes. */
+   Swipeable stack of issue covers. Each cover is a full-bleed image from img/
+   with the masthead and headline overlaid; .cover::after is the scrim that
+   keeps that type legible whatever the artwork does underneath. */
 .deck-wrap{position:relative;flex:1;min-height:440px;display:flex;flex-direction:column;background:linear-gradient(145deg,#ffe8f2 0%,#f7c5d8 60%,#e8a0c0 100%);}
 .deck{position:relative;flex:1;overflow:hidden;touch-action:pan-y;cursor:grab;-webkit-user-select:none;user-select:none;}
 .deck.is-dragging{cursor:grabbing;}
@@ -174,21 +174,17 @@ footer a:hover{color:var(--pink-dark);}
 .deck-card:focus-visible{outline:2px solid var(--black);outline-offset:6px;}
 .deck.is-dragging .deck-card{cursor:grabbing;}
 
-.cover{width:100%;height:100%;position:relative;overflow:hidden;display:flex;flex-direction:column;padding:16px 16px 14px;box-shadow:0 18px 40px -12px rgba(52,49,51,.38),0 2px 8px rgba(52,49,51,.12);}
+.cover{width:100%;height:100%;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;padding:15px 15px 14px;color:var(--white);background:var(--black);box-shadow:0 18px 40px -12px rgba(52,49,51,.38),0 2px 8px rgba(52,49,51,.12);}
+.cover-img{position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;display:block;}
+/* scrim: keeps the type legible over any artwork, light or dark */
+.cover::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(to bottom,rgba(18,16,18,.58) 0%,rgba(18,16,18,.14) 28%,rgba(18,16,18,0) 48%,rgba(18,16,18,.52) 78%,rgba(18,16,18,.82) 100%);}
+.cover-top,.cover-foot{position:relative;z-index:2;text-shadow:0 1px 12px rgba(18,16,18,.5);}
 .cover-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
 .cover-masthead{font-family:"AkzidenzGrotesk","Arial Black",Arial,sans-serif;font-weight:700;font-size:clamp(15px,2.4vw,21px);letter-spacing:-.03em;text-transform:uppercase;line-height:1;}
-.cover-no{font-size:9px;letter-spacing:.16em;text-transform:uppercase;opacity:.65;white-space:nowrap;}
-/* PLACEHOLDER artwork block — replace with a real <img> */
-.cover-art{flex:1;margin:12px 0;position:relative;overflow:hidden;background-image:repeating-linear-gradient(90deg,currentColor 0 1px,transparent 1px 9px);opacity:.9;}
-.cover-art::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 30% 25%,rgba(255,255,255,.85) 0%,rgba(255,255,255,0) 60%);}
-.cover-headline{font-family:"AkzidenzGrotesk","Arial Black",Arial,sans-serif;font-weight:700;font-size:clamp(13px,1.9vw,17px);line-height:1.02;letter-spacing:-.02em;text-transform:uppercase;}
-.cover-date{font-size:9px;letter-spacing:.16em;text-transform:uppercase;opacity:.65;margin-top:7px;}
-
-.cover--cream{background:var(--cream);color:var(--black);}
-.cover--blush{background:var(--pink-light);color:var(--black);}
-.cover--ink{background:var(--black);color:var(--white);}
-.cover--paper{background:var(--white);color:var(--black);border:1.5px solid var(--black);}
-.cover--pink{background:var(--pink-btn);color:var(--white);}
+.cover-no{font-size:9px;letter-spacing:.16em;text-transform:uppercase;opacity:.8;white-space:nowrap;}
+.cover-foot{display:block;}
+.cover-headline{display:block;font-family:"AkzidenzGrotesk","Arial Black",Arial,sans-serif;font-weight:700;font-size:clamp(13px,1.9vw,17px);line-height:1.02;letter-spacing:-.02em;text-transform:uppercase;}
+.cover-date{display:block;font-size:9px;letter-spacing:.16em;text-transform:uppercase;opacity:.8;margin-top:7px;}
 
 /* deck controls */
 .deck-bar{display:flex;align-items:center;gap:14px;padding:14px 20px;background:rgba(255,255,255,.72);backdrop-filter:blur(8px);border-top:1.5px solid rgba(52,49,51,.1);}
@@ -245,8 +241,8 @@ body.is-locked{overflow:hidden;}
   .hero{grid-template-columns:1fr;min-height:auto;}
   .hero-left{padding:48px 24px;border-right:none;border-bottom:1.5px solid var(--gray-border);}
   .hero-right{min-height:260px;}
-  .deck-wrap{min-height:390px;}
-  .deck-card{width:min(62%,230px);}
+  .deck-wrap{min-height:452px;}
+  .deck-card{width:min(58%,214px);}
   .deck-bar{padding:12px 16px;gap:10px;}
   .reader-inner{padding:64px 20px 64px;}
   .proof-bar{grid-template-columns:1fr;padding:40px 24px;gap:0;}
@@ -307,18 +303,21 @@ body.is-locked{overflow:hidden;}
   </div>
   <div class="hero-right" style="flex-direction:column;padding:0;">
     <!-- ISSUE DECK — drag / swipe the covers, tap one to open.
-         PLACEHOLDER CONTENT: covers are CSS-drawn and copy is sample. Swap the
-         .cover-art block for a real <img> and edit each card's data-* values. -->
+         Cover art lives in img/. Issue copy is sample text: edit each card's
+         data-no / data-date / data-title / data-lede and its <ul data-points>
+         and the deck label, dots and reader all follow. -->
     <div class="deck-wrap">
       <div class="deck" data-deck role="group" aria-roledescription="carousel" aria-label="Recent issues of The Radar">
 
         <button class="deck-card" type="button" data-theme="cream" data-no="01" data-date="16 July"
                 data-title="Ozempic face" data-lede="Search interest in GLP-1 related volume loss spiked 137% in seven days. Patients who spent months losing weight are now asking how to get their face back.">
-          <span class="cover cover--cream">
+          <span class="cover">
+            <img class="cover-img" src="img/issue-01.webp" alt="" width="600" height="800" decoding="async" fetchpriority="high">
             <span class="cover-top"><span class="cover-masthead">The Radar</span><span class="cover-no">No. 01</span></span>
-            <span class="cover-art"></span>
-            <span class="cover-headline">Ozempic<br>face</span>
-            <span class="cover-date">16 July</span>
+            <span class="cover-foot">
+              <span class="cover-headline">Ozempic<br>face</span>
+              <span class="cover-date">16 July</span>
+            </span>
           </span>
           <ul hidden data-points>
             <li>Volume-loss searches up 137% week over week</li>
@@ -327,13 +326,15 @@ body.is-locked{overflow:hidden;}
           </ul>
         </button>
 
-        <button class="deck-card" type="button" data-theme="ink" data-no="02" data-date="23 July"
+        <button class="deck-card" type="button" data-theme="paper" data-no="02" data-date="23 July"
                 data-title="The filler retreat" data-lede="The shift away from the overfilled look is accelerating. Patients want collagen stimulation, not volume addition, and they are saying so out loud.">
-          <span class="cover cover--ink">
+          <span class="cover">
+            <img class="cover-img" src="img/issue-02.webp" alt="" width="600" height="800" decoding="async">
             <span class="cover-top"><span class="cover-masthead">The Radar</span><span class="cover-no">No. 02</span></span>
-            <span class="cover-art"></span>
-            <span class="cover-headline">The filler<br>retreat</span>
-            <span class="cover-date">23 July</span>
+            <span class="cover-foot">
+              <span class="cover-headline">The filler<br>retreat</span>
+              <span class="cover-date">23 July</span>
+            </span>
           </span>
           <ul hidden data-points>
             <li>Sculptra and Radiesse gaining ground on hyaluronic acid</li>
@@ -344,11 +345,13 @@ body.is-locked{overflow:hidden;}
 
         <button class="deck-card" type="button" data-theme="blush" data-no="03" data-date="30 July"
                 data-title="Regenerative wave" data-lede="Exosomes and PDRN are landing in US clinics from K-Beauty. PRP and PRF for hair restoration are gaining serious traction on TikTok.">
-          <span class="cover cover--blush">
+          <span class="cover">
+            <img class="cover-img" src="img/issue-03.webp" alt="" width="600" height="800" decoding="async">
             <span class="cover-top"><span class="cover-masthead">The Radar</span><span class="cover-no">No. 03</span></span>
-            <span class="cover-art"></span>
-            <span class="cover-headline">Regenerative<br>wave</span>
-            <span class="cover-date">30 July</span>
+            <span class="cover-foot">
+              <span class="cover-headline">Regenerative<br>wave</span>
+              <span class="cover-date">30 July</span>
+            </span>
           </span>
           <ul hidden data-points>
             <li>Which regenerative claims are safe to make in content</li>
@@ -357,13 +360,15 @@ body.is-locked{overflow:hidden;}
           </ul>
         </button>
 
-        <button class="deck-card" type="button" data-theme="pink" data-no="04" data-date="06 August"
+        <button class="deck-card" type="button" data-theme="ink" data-no="04" data-date="06 August"
                 data-title="Price signals" data-lede="Demand patterns, pricing movement and category shifts across the aesthetic market, read against what patients are actually saying online.">
-          <span class="cover cover--pink">
+          <span class="cover">
+            <img class="cover-img" src="img/issue-04.webp" alt="" width="600" height="800" decoding="async">
             <span class="cover-top"><span class="cover-masthead">The Radar</span><span class="cover-no">No. 04</span></span>
-            <span class="cover-art"></span>
-            <span class="cover-headline">Price<br>signals</span>
-            <span class="cover-date">06 August</span>
+            <span class="cover-foot">
+              <span class="cover-headline">Price<br>signals</span>
+              <span class="cover-date">06 August</span>
+            </span>
           </span>
           <ul hidden data-points>
             <li>Where discounting is spreading and where it is not</li>
@@ -372,13 +377,15 @@ body.is-locked{overflow:hidden;}
           </ul>
         </button>
 
-        <button class="deck-card" type="button" data-theme="paper" data-no="05" data-date="13 August"
+        <button class="deck-card" type="button" data-theme="pink" data-no="05" data-date="13 August"
                 data-title="Formats that convert" data-lede="Content formats move faster than treatments do. This issue tracks the structures earning reach in aesthetic medicine right now.">
-          <span class="cover cover--paper">
+          <span class="cover">
+            <img class="cover-img" src="img/issue-05.webp" alt="" width="600" height="800" decoding="async">
             <span class="cover-top"><span class="cover-masthead">The Radar</span><span class="cover-no">No. 05</span></span>
-            <span class="cover-art"></span>
-            <span class="cover-headline">Formats<br>that convert</span>
-            <span class="cover-date">13 August</span>
+            <span class="cover-foot">
+              <span class="cover-headline">Formats<br>that convert</span>
+              <span class="cover-date">13 August</span>
+            </span>
           </span>
           <ul hidden data-points>
             <li>The hook patterns outperforming on TikTok this week</li>
