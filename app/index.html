@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"/>
+<title>Magaz</title>
+<meta name="description" content="An e-magazine reader."/>
+<meta name="theme-color" content="#000000"/>
+<link rel="manifest" href="manifest.webmanifest"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Magaz"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --ink:#0d0d0f;
+  --paper:#f4ecf1;          /* the pale lilac-pink the home screen sits on */
+  --paper-dim:#e6dae1;
+  --accent:#ff2d6f;
+  --field:#1c1c1f;          /* search pill */
+  --safe-t:env(safe-area-inset-top,0px);
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --ui:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --serif:"Playfair Display",Georgia,"Times New Roman",serif;
+}
+html,body{height:100%;}
+body{
+  font-family:var(--ui);background:#000;color:var(--ink);
+  overflow:hidden;overscroll-behavior:none;
+  -webkit-font-smoothing:antialiased;
+  -webkit-user-select:none;user-select:none;
+  touch-action:manipulation;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
+img{display:block;}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+
+/* the app fills the viewport; dvh keeps it honest when mobile browser chrome slides away */
+.app{position:fixed;inset:0;height:100dvh;overflow:hidden;background:var(--paper);}
+
+/* ===== FAKE STATUS BAR =====
+   Present in a browser tab so the screen matches the reference; hidden once
+   installed, where the real system status bar takes over. */
+.statusbar{position:absolute;top:0;left:0;right:0;z-index:60;height:54px;padding:14px 26px 0;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:15px;font-weight:600;letter-spacing:.02em;color:#fff;pointer-events:none;
+  transition:color .45s ease;}
+.statusbar.on-light{color:var(--ink);}
+.statusbar-icons{display:flex;gap:6px;align-items:center;}
+@media (display-mode:standalone){
+  .statusbar{display:none;}
+  .app{padding-top:var(--safe-t);}
+}
+
+/* ===== HOME ===== */
+.home{position:absolute;inset:0;z-index:1;isolation:isolate;display:flex;flex-direction:column;
+  background:linear-gradient(to bottom,#000 0%,#000 30%,#1a1418 40%,var(--paper) 56%,var(--paper) 100%);}
+.home-head{flex:none;padding:calc(54px + var(--safe-t)) 22px 0;}
+.home-bar{display:flex;justify-content:space-between;align-items:center;height:40px;}
+.logo{display:flex;align-items:center;gap:9px;}
+.logo-mark{position:relative;width:26px;height:26px;flex:none;}
+.logo-dot{position:absolute;width:17px;height:17px;border-radius:50%;}
+.logo-dot--a{left:0;top:0;background:#e82a3c;}
+.logo-dot--b{right:0;bottom:0;background:#3cc878;mix-blend-mode:hard-light;}
+.logo-word{font-size:24px;font-weight:600;letter-spacing:-.02em;color:#fff;}
+.scan{width:34px;height:34px;display:grid;place-items:center;color:#fff;}
+.search{margin-top:14px;height:50px;border-radius:25px;background:var(--field);
+  display:flex;align-items:center;gap:12px;padding:0 20px;color:#8b8b90;}
+.search span{font-size:14px;font-weight:400;}
+
+/* ---- the cover deck ---- */
+.deck{position:relative;flex:1;min-height:0;touch-action:pan-y;}
+.deck-card{position:absolute;left:50%;top:50%;width:var(--cw,63%);aspect-ratio:3/4;
+  transform-origin:50% 50%;will-change:transform;padding:0;display:block;}
+.cover{display:block;position:relative;width:100%;height:100%;overflow:hidden;background:#111;
+  box-shadow:0 26px 50px -18px rgba(0,0,0,.55),0 4px 14px rgba(0,0,0,.22);}
+.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.cover::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(to bottom,rgba(10,8,10,.34) 0%,rgba(10,8,10,0) 34%,rgba(10,8,10,0) 60%,rgba(10,8,10,.6) 100%);}
+.cover-mast{position:absolute;top:0;left:0;right:0;z-index:2;padding:11px 12px 0;
+  display:flex;justify-content:space-between;align-items:flex-start;color:#fff;}
+.cover-mast b{font-family:var(--ui);font-size:clamp(20px,6.4vw,30px);font-weight:700;letter-spacing:-.045em;line-height:.9;}
+.cover-mast i{font-style:normal;font-size:8px;font-weight:600;letter-spacing:.14em;opacity:.85;padding-top:4px;}
+.cover-foot{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:0 12px 12px;color:#fff;}
+.cover-foot b{display:block;font-size:13px;font-weight:600;letter-spacing:.01em;line-height:1.12;}
+.cover-foot i{display:block;font-style:normal;font-size:8px;font-weight:500;letter-spacing:.16em;opacity:.8;margin-top:5px;}
+
+/* ---- all magazines ---- */
+.shelf{flex:none;padding:0 22px 6px;}
+.shelf h2{font-size:19px;font-weight:600;letter-spacing:-.02em;margin-bottom:12px;}
+.shelf-row{display:flex;gap:9px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;
+  padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+.shelf-row::-webkit-scrollbar{display:none;}
+.shelf-item{flex:none;width:84px;border-radius:3px;overflow:hidden;background:var(--paper-dim);padding:0;}
+.shelf-item img{width:100%;height:100%;object-fit:cover;}
+.shelf-item:nth-child(odd){height:104px;}
+.shelf-item:nth-child(even){height:118px;align-self:flex-end;}
+
+/* ---- tab bar ---- */
+.tabs{flex:none;display:flex;align-items:center;justify-content:space-around;
+  height:58px;padding-bottom:var(--safe-b);color:var(--ink);}
+.tab{width:46px;height:46px;display:grid;place-items:center;opacity:.35;transition:opacity .2s;}
+.tab[aria-current="page"]{opacity:1;}
+.home-indicator{flex:none;height:22px;display:grid;place-items:center;padding-bottom:var(--safe-b);}
+.home-indicator::after{content:"";width:134px;height:5px;border-radius:3px;background:rgba(13,13,15,.75);}
+
+/* ===== READER =====
+   A horizontal pager. Each page carries its own gradient sampled from its
+   cover, so swiping cross-fades the whole screen the way the reference does. */
+.reader{position:absolute;inset:0;z-index:40;background:#000;
+  opacity:0;visibility:hidden;transition:opacity .34s ease,visibility .34s;}
+.reader.is-open{opacity:1;visibility:visible;}
+/* Where View Transitions run, they animate the open/close themselves — drop the
+   fade so the two don't stack. */
+@supports (view-transition-name:x){
+  .reader{transition:none;}
+}
+::view-transition-old(magaz-cover),::view-transition-new(magaz-cover),
+::view-transition-old(magaz-no),::view-transition-new(magaz-no){
+  animation-duration:.4s;animation-timing-function:cubic-bezier(.22,1,.36,1);
+  mix-blend-mode:normal;
+}
+.reader-track{position:absolute;inset:0;display:flex;will-change:transform;}
+.page{position:relative;flex:0 0 100%;height:100%;overflow:hidden;
+  background:linear-gradient(to bottom,var(--top) 0%,var(--top) 18%,var(--bot) 72%,var(--bot) 100%);}
+.page-head{position:absolute;left:0;right:0;top:calc(76px + var(--safe-t));
+  display:flex;flex-direction:column;align-items:center;}
+.page-cover{width:52%;aspect-ratio:3/4;will-change:transform;
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.5);}
+.page-meta{margin-top:18px;text-align:center;color:#fff;will-change:transform;}
+.page-date{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;opacity:.92;}
+.page-rule{width:74px;height:1px;background:rgba(255,255,255,.65);margin:9px auto 0;}
+/* the oversized numeral + headline block; tapping it opens the article */
+.page-open{position:absolute;left:0;right:0;bottom:0;padding:0 22px calc(30px + var(--safe-b));
+  text-align:left;color:#fff;display:block;width:100%;}
+.page-no{font-size:clamp(88px,30vw,150px);font-weight:600;letter-spacing:-.06em;line-height:.76;
+  display:block;margin-left:-6px;}
+.page-title{display:block;font-family:var(--serif);font-size:clamp(15px,4.6vw,21px);font-weight:600;
+  line-height:1.12;text-transform:uppercase;letter-spacing:.01em;margin-top:6px;}
+.page-teaser{display:block;font-size:11px;font-weight:400;line-height:1.55;opacity:.72;margin-top:10px;
+  max-width:86%;}
+.reader-rail{position:absolute;right:18px;top:52%;z-index:3;display:flex;flex-direction:column;gap:18px;color:#fff;}
+.rail-btn{width:30px;height:30px;display:grid;place-items:center;opacity:.9;transition:transform .18s;}
+.rail-btn:active{transform:scale(.86);}
+.rail-btn[aria-pressed="true"]{color:var(--accent);opacity:1;}
+.reader-top{position:absolute;top:calc(56px + var(--safe-t));left:0;right:0;z-index:3;
+  display:flex;justify-content:space-between;padding:0 18px;color:#fff;}
+.reader-top button{width:32px;height:32px;display:grid;place-items:center;}
+.page-dots{position:absolute;left:0;right:0;bottom:calc(12px + var(--safe-b));z-index:3;
+  display:flex;justify-content:center;gap:5px;}
+.page-dots span{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.34);transition:background .2s;}
+.page-dots span.on{background:#fff;}
+
+/* ===== ARTICLE ===== */
+.article{position:absolute;inset:0;z-index:50;background:#08080a;color:#fff;
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  transform:translateY(100%);visibility:hidden;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),visibility .42s;}
+.article.is-open{transform:translateY(0);visibility:visible;}
+.article-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;
+  padding:calc(56px + var(--safe-t)) 18px 14px;background:linear-gradient(to bottom,#08080a 68%,rgba(8,8,10,0));}
+.article-no{position:absolute;left:0;right:0;text-align:center;font-size:17px;font-weight:600;letter-spacing:-.02em;pointer-events:none;}
+.article-top button{width:32px;height:32px;display:grid;place-items:center;}
+.article-body{padding:6px 26px calc(70px + var(--safe-b));}
+.article-title{font-family:var(--serif);font-size:clamp(21px,6.6vw,30px);font-weight:600;line-height:1.1;
+  text-transform:uppercase;letter-spacing:.01em;margin-bottom:22px;}
+.article-body p{font-size:13.5px;line-height:1.95;color:rgba(255,255,255,.7);margin-bottom:18px;font-weight:400;}
+.article-body p.lead{color:rgba(255,255,255,.92);font-size:14.5px;}
+.article-fig{margin:26px 0;}
+.article-fig img{width:100%;height:auto;}
+.article-fig figcaption{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(255,255,255,.4);margin-top:9px;}
+.article-end{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;
+  color:rgba(255,255,255,.34);text-align:center;padding:16px 0 0;}
+
+@media (prefers-reduced-motion:reduce){
+  .deck-card,.reader,.article,.reader-track,.page-cover{transition:none!important;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Fake status bar: matches the reference in a browser tab, hides once installed -->
+  <div class="statusbar" data-statusbar aria-hidden="true">
+    <span>9:41</span>
+    <span class="statusbar-icons">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5 5.8 8.2a3.1 3.1 0 0 1 4.4 0L8 10.5Zm-4-4.1L2.5 4.9a7.8 7.8 0 0 1 11 0L12 6.4a5.7 5.7 0 0 0-8 0ZM8 0a10 10 0 0 1 7 2.8L13.6 4.3a8 8 0 0 0-11.2 0L1 2.8A10 10 0 0 1 8 0Z"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".5"/><rect x="2" y="2" width="15" height="8" rx="1.6" fill="currentColor"/><path d="M23 4v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <!-- ===== HOME ===== -->
+  <section class="home">
+    <header class="home-head">
+      <div class="home-bar">
+        <div class="logo">
+          <span class="logo-mark"><span class="logo-dot logo-dot--a"></span><span class="logo-dot logo-dot--b"></span></span>
+          <span class="logo-word">Magaz</span>
+        </div>
+        <button class="scan" type="button" aria-label="Scan">
+          <svg width="21" height="21" viewBox="0 0 21 21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M1 6V2.6A1.6 1.6 0 0 1 2.6 1H6M15 1h3.4A1.6 1.6 0 0 1 20 2.6V6M20 15v3.4a1.6 1.6 0 0 1-1.6 1.6H15M6 20H2.6A1.6 1.6 0 0 1 1 18.4V15"/></svg>
+        </button>
+      </div>
+      <div class="search">
+        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7.2" cy="7.2" r="5.4"/><path d="m11.4 11.4 4 4"/></svg>
+        <span>Search magazines</span>
+      </div>
+    </header>
+
+    <!-- cover deck: drag sideways, tap the front cover to open -->
+    <div class="deck" data-deck role="group" aria-roledescription="carousel" aria-label="Magazine covers"></div>
+
+    <div class="shelf">
+      <h2>All magazines</h2>
+      <div class="shelf-row" data-shelf></div>
+    </div>
+
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab" type="button" aria-current="page" aria-label="Home">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="currentColor"><path d="M11 1.6 1.8 9.3v11h6.4v-6.1h5.6v6.1h6.4v-11L11 1.6Z"/></svg>
+      </button>
+      <button class="tab" type="button" aria-label="Store">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3.3 7h15.4l-1.2 13H4.5L3.3 7Z"/><path d="M7.6 7V5a3.4 3.4 0 0 1 6.8 0v2"/></svg>
+      </button>
+      <button class="tab" type="button" aria-label="Profile">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="9.1"/><circle cx="7.8" cy="9" r="1.1" fill="currentColor" stroke="none"/><circle cx="14.2" cy="9" r="1.1" fill="currentColor" stroke="none"/><path d="M7.6 14.2a4.6 4.6 0 0 0 6.8 0" stroke-linecap="round"/></svg>
+      </button>
+    </nav>
+    <div class="home-indicator" aria-hidden="true"></div>
+  </section>
+
+  <!-- ===== READER ===== -->
+  <section class="reader" data-reader role="dialog" aria-modal="true" aria-label="Issue">
+    <div class="reader-track" data-reader-track></div>
+    <div class="reader-top">
+      <button type="button" data-reader-close aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M1 1l14 14M15 1 1 15"/></svg>
+      </button>
+      <button type="button" data-share aria-label="Share">
+        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 14 3M6 3h8v8"/></svg>
+      </button>
+    </div>
+    <div class="reader-rail">
+      <button class="rail-btn" type="button" data-like aria-pressed="false" aria-label="Like">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 17.2 3.1 10.5a4.2 4.2 0 0 1 5.9-5.9l1 1 1-1a4.2 4.2 0 1 1 5.9 5.9L10 17.2Z"/></svg>
+      </button>
+      <button class="rail-btn" type="button" data-save aria-pressed="false" aria-label="Save">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4.6 2.4h10.8v15.2L10 13.4l-5.4 4.2V2.4Z"/></svg>
+      </button>
+    </div>
+    <div class="page-dots" data-dots aria-hidden="true"></div>
+  </section>
+
+  <!-- ===== ARTICLE ===== -->
+  <article class="article" data-article aria-label="Article">
+    <div class="article-top">
+      <button type="button" data-article-close aria-label="Close article">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M1 1l14 14M15 1 1 15"/></svg>
+      </button>
+      <span class="article-no" data-article-no></span>
+      <button type="button" data-share aria-label="Share">
+        <svg width="17" height="17" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 14 3M6 3h8v8"/></svg>
+      </button>
+    </div>
+    <div class="article-body" data-article-body></div>
+  </article>
+
+</div>
+
+<script>
+/* ============================================================
+   CONTENT — edit here and every screen follows.
+   `top`/`bot` are the reader's background gradient, sampled from each cover.
+   Copy is placeholder.
+   ============================================================ */
+const ISSUES = [
+  { img:'../img/issue-01.webp', mast:'THE RADAR', edition:'NO. 01', date:'30 July',
+    cover:'Chromework', title:'The metal years',
+    teaser:'On the season that traded softness for shine, and what it cost to keep up.',
+    top:'#f2e4da', bot:'#5d3e32',
+    body:[
+      'It started, as these things do, with a single look that nobody could place. Not jewellery exactly, not hair exactly — something between the two that the camera could not stop finding.',
+      'What followed was eighteen months of the same instinct repeating across shows, feeds and salon chairs, each iteration a little more literal than the last. The material stayed constant. The meaning kept moving.',
+      'By the time it reached the street it had lost the argument it started with, which is usually the point at which a thing becomes a trend rather than an idea.'
+    ]},
+  { img:'../img/issue-02.webp', mast:'THE RADAR', edition:'NO. 02', date:'23 July',
+    cover:'Soft Machine', title:'On things that hold',
+    teaser:'A study in containment — what we put inside glass, and why we need to see it.',
+    top:'#dde9f0', bot:'#244254',
+    body:[
+      'Transparency has been the defining material of the decade, and almost nobody has said out loud what it is for.',
+      'The appeal is not that you can see through it. The appeal is that it proves there is nothing to hide — a claim made in a language that predates the current anxiety about being looked at, and survives it.',
+      'Held up to the light, the contents turn out to be mostly air and intention. That is not a criticism.'
+    ]},
+  { img:'../img/issue-03.webp', mast:'THE RADAR', edition:'NO. 03', date:'16 July',
+    cover:'Bloom State', title:'A season in flower',
+    teaser:'Gypsophila, glitter and the return of decoration for its own sake.',
+    top:'#ece1d8', bot:'#1e4c72',
+    body:[
+      'For most of the last decade, decoration had to justify itself. Everything carried a reason: a function, a story, a stated intent.',
+      'This season abandoned the requirement entirely. Flowers appear where flowers make no sense, in quantities that serve nothing, and the effect is not frivolous but genuinely relieving.',
+      'It turns out the argument for beauty without a brief is simply that people look happier making it.'
+    ]},
+  { img:'../img/issue-04.webp', mast:'THE RADAR', edition:'NO. 04', date:'09 July',
+    cover:'Handwork', title:'The language of hands',
+    teaser:'Nails as punctuation — the smallest surface carrying the loudest signal.',
+    top:'#e9eff3', bot:'#14263a',
+    body:[
+      'No other surface on the body gets redrawn this often, and none is read this quickly.',
+      'A set lasts three weeks and says more in that time than a wardrobe does in a season. The economics are absurd and the communication is near-instant, which explains why the form keeps outrunning the industry built around it.',
+      'Watch the hands. They tell you where the rest of it is going about a month early.'
+    ]},
+  { img:'../img/issue-05.webp', mast:'THE RADAR', edition:'NO. 05', date:'02 July',
+    cover:'Night Garden', title:'After the ceremony',
+    teaser:'What happens to the flowers, the car and the dress once the pictures are taken.',
+    top:'#efe8e1', bot:'#16190f',
+    body:[
+      'Every ritual generates an enormous amount of material that exists only for the half hour in which it is photographed.',
+      'The interesting part is always afterwards: the same objects in the same place with the ceremony removed, still carrying the charge, no longer doing the job.',
+      'That gap — between the thing and its purpose — is where most of the good pictures live.'
+    ]}
+];
+
+(function(){
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var deck = document.querySelector('[data-deck]');
+  var shelf = document.querySelector('[data-shelf]');
+  var reader = document.querySelector('[data-reader]');
+  var track = document.querySelector('[data-reader-track]');
+  var dotsWrap = document.querySelector('[data-dots]');
+  var article = document.querySelector('[data-article]');
+  var statusbar = document.querySelector('[data-statusbar]');
+  var n = ISSUES.length;
+
+  /* ---------- build the covers ---------- */
+  function coverHTML(d){
+    return '<span class="cover">'
+      + '<img src="' + d.img + '" alt="" width="600" height="800" decoding="async">'
+      + '<span class="cover-mast"><b>' + d.mast + '</b><i>' + d.edition + '</i></span>'
+      + '<span class="cover-foot"><b>' + d.cover + '</b><i>' + d.date + '</i></span>'
+      + '</span>';
+  }
+  ISSUES.forEach(function(d,i){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'deck-card';
+    b.innerHTML = coverHTML(d);
+    b.setAttribute('aria-label', d.cover + ', ' + d.date);
+    deck.appendChild(b);
+
+    var s = document.createElement('button');
+    s.type = 'button'; s.className = 'shelf-item';
+    s.innerHTML = '<img src="' + d.img + '" alt="" loading="lazy" decoding="async">';
+    s.setAttribute('aria-label', d.cover);
+    s.addEventListener('click', function(){ openReader(i, s.querySelector('img')); });
+    shelf.appendChild(s);
+
+    var p = document.createElement('div');
+    p.className = 'page';
+    p.style.setProperty('--top', d.top);
+    p.style.setProperty('--bot', d.bot);
+    p.innerHTML =
+        '<div class="page-head"><div class="page-cover">' + coverHTML(d) + '</div>'
+      + '<div class="page-meta"><div class="page-date">' + d.date + '</div><div class="page-rule"></div></div></div>'
+      + '<button class="page-open" type="button">'
+      +   '<span class="page-no">' + String(i+1).padStart(2,'0') + '</span>'
+      +   '<span class="page-title">' + d.title + '</span>'
+      +   '<span class="page-teaser">' + d.teaser + '</span>'
+      + '</button>';
+    p.querySelector('.page-open').addEventListener('click', function(){ openArticle(i); });
+    track.appendChild(p);
+
+    var dot = document.createElement('span');
+    dotsWrap.appendChild(dot);
+  });
+  var cards = Array.prototype.slice.call(deck.querySelectorAll('.deck-card'));
+  var pages = Array.prototype.slice.call(track.querySelectorAll('.page'));
+
+  /* ============================================================
+     DECK — a fanned stack. Position is continuous, so the cards
+     track the finger instead of snapping between fixed states.
+     ============================================================ */
+  var STEP = 0.34;                 /* share of card width per index */
+  var pos = 0, target = 0, raf = null;
+  var cardW = 0;
+
+  function layoutDeck(){
+    var w = deck.clientWidth, h = deck.clientHeight;
+    /* 3:4 cards, so a height budget of 84% converts to width * 0.75 */
+    cardW = Math.max(60, Math.min(w * 0.63, h * 0.84 * 0.75));
+    deck.style.setProperty('--cw', cardW + 'px');
+  }
+
+  function wrap(d){ d = ((d % n) + n) % n; return d > n/2 ? d - n : d; }
+
+  function renderDeck(){
+    var w = cardW;
+    for(var i=0;i<n;i++){
+      var o = wrap(i - pos), a = Math.abs(o);
+      var x = o * w * STEP;
+      var rot = Math.max(-26, Math.min(26, o * 9));
+      var sc = Math.max(.62, 1 - a * .06);
+      var y = a * 7;
+      var c = cards[i];
+      c.style.transform = 'translate3d(calc(-50% + '+x.toFixed(2)+'px), calc(-50% + '+y.toFixed(2)+'px), 0) rotate('+rot.toFixed(2)+'deg) scale('+sc.toFixed(3)+')';
+      c.style.opacity = (a > 2.5 ? 0 : a > 1.3 ? Math.max(0, 1-(a-1.3)*.8) : 1).toFixed(3);
+      c.style.zIndex = String(100 - Math.round(a*10));
+      c.style.pointerEvents = a > 2.5 ? 'none' : 'auto';
+      c.tabIndex = a < .5 ? 0 : -1;
+      c.setAttribute('aria-hidden', a < .5 ? 'false' : 'true');
+    }
+  }
+  function tickDeck(){
+    var d = target - pos;
+    if(Math.abs(d) < .0005){ pos = target; renderDeck(); raf = null; return; }
+    pos += d * .16; renderDeck(); raf = requestAnimationFrame(tickDeck);
+  }
+  function goDeck(t){
+    target = t;
+    if(reduce){ pos = target; renderDeck(); return; }
+    if(!raf) raf = requestAnimationFrame(tickDeck);
+  }
+
+  /* one pointer-drag helper, shared by the deck and the reader pager */
+  function draggable(el, opts){
+    var st = null;
+    el.addEventListener('pointerdown', function(e){
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      st = {id:e.pointerId, x:e.clientX, y:e.clientY, lx:e.clientX, lt:e.timeStamp, v:0, moved:0, axis:null};
+      opts.start();
+    });
+    el.addEventListener('pointermove', function(e){
+      if(!st || e.pointerId !== st.id) return;
+      var dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if(st.axis === null && (Math.abs(dx) > 6 || Math.abs(dy) > 6)){
+        st.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        if(st.axis === 'x') el.setPointerCapture(st.id);
+      }
+      if(st.axis !== 'x') return;
+      e.preventDefault();
+      st.moved = Math.max(st.moved, Math.abs(dx));
+      var dt = e.timeStamp - st.lt;
+      if(dt > 0){ st.v = (e.clientX - st.lx)/dt; st.lx = e.clientX; st.lt = e.timeStamp; }
+      opts.move(dx);
+    });
+    function end(e){
+      if(!st || (e && e.pointerId !== st.id)) return;
+      var s = st; st = null;
+      if(s.axis !== 'x'){ opts.cancel && opts.cancel(); return; }
+      opts.end(s.v, s.moved);
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    return { moved:function(){ return st ? st.moved : 0; } };
+  }
+
+  var deckStartPos = 0, deckMoved = 0;
+  draggable(deck, {
+    start:function(){ deckStartPos = pos; deckMoved = 0; if(raf){ cancelAnimationFrame(raf); raf = null; } },
+    move:function(dx){ deckMoved = Math.abs(dx); pos = deckStartPos - dx/(cardW*STEP); renderDeck(); },
+    end:function(v){
+      var per = cardW*STEP;
+      var near = Math.round(pos);
+      var t = Math.round(pos + (-v*110/per));
+      goDeck(Math.max(near-1, Math.min(near+1, t)));
+    }
+  });
+  cards.forEach(function(card,i){
+    card.addEventListener('click', function(){
+      if(deckMoved > 6) return;
+      var o = wrap(i - pos);
+      if(Math.abs(o) >= .5){ goDeck(Math.round(target) + wrap(i - ((Math.round(target)%n)+n)%n)); return; }
+      var cur = ((Math.round(target)%n)+n)%n;
+      openReader(cur, deckCover(cur));
+    });
+  });
+  deck.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowLeft'){ e.preventDefault(); goDeck(Math.round(target)-1); }
+    if(e.key === 'ArrowRight'){ e.preventDefault(); goDeck(Math.round(target)+1); }
+  });
+
+  /* ============================================================
+     READER — horizontal pager. The cover drifts slower than the
+     page it sits on, which is what gives the swipe its depth.
+     ============================================================ */
+  var pPos = 0, pTarget = 0, pRaf = null, pStart = 0;
+
+  function renderPager(){
+    var w = reader.clientWidth || window.innerWidth;
+    track.style.transform = 'translate3d(' + (-pPos*w).toFixed(2) + 'px,0,0)';
+    for(var i=0;i<n;i++){
+      var o = i - pPos, a = Math.abs(o);
+      var cov = pages[i].querySelector('.page-cover');
+      var meta = pages[i].querySelector('.page-meta');
+      /* parallax: cover and its caption lag the page by 14% / 7% */
+      cov.style.transform = 'translateX(' + (o*w*0.14).toFixed(2) + 'px) scale(' + Math.max(.86, 1-a*.07).toFixed(3) + ')';
+      meta.style.transform = 'translateX(' + (o*w*0.07).toFixed(2) + 'px)';
+      pages[i].style.opacity = a > 1.15 ? '0' : '1';
+    }
+    var cur = Math.round(pPos);
+    for(var k=0;k<dotsWrap.children.length;k++) dotsWrap.children[k].classList.toggle('on', k === cur);
+    if(ISSUES[cur]) setStatusTone(ISSUES[cur].top);
+  }
+  function tickPager(){
+    var d = pTarget - pPos;
+    if(Math.abs(d) < .0005){ pPos = pTarget; renderPager(); pRaf = null; return; }
+    pPos += d * .18; renderPager(); pRaf = requestAnimationFrame(tickPager);
+  }
+  function goPage(t){
+    pTarget = Math.max(0, Math.min(n-1, t));
+    if(reduce){ pPos = pTarget; renderPager(); return; }
+    if(!pRaf) pRaf = requestAnimationFrame(tickPager);
+  }
+  draggable(track, {
+    start:function(){ pStart = pPos; if(pRaf){ cancelAnimationFrame(pRaf); pRaf = null; } },
+    move:function(dx){
+      var w = reader.clientWidth || window.innerWidth;
+      var next = pStart - dx/w;
+      if(next < 0) next *= .35;                       /* rubber-band the ends */
+      if(next > n-1) next = (n-1) + (next-(n-1))*.35;
+      pPos = next; renderPager();
+    },
+    end:function(v){
+      var w = reader.clientWidth || window.innerWidth;
+      var near = Math.round(pPos);
+      var t = Math.round(pPos + (-v*180/w));
+      goPage(Math.max(near-1, Math.min(near+1, t)));
+    }
+  });
+
+  /* light cover tops need dark status-bar glyphs */
+  function luma(hex){
+    var v = parseInt(hex.slice(1),16);
+    return (0.2126*(v>>16&255) + 0.7152*(v>>8&255) + 0.0722*(v&255))/255;
+  }
+  function setStatusTone(hex){ statusbar.classList.toggle('on-light', luma(hex) > .6); }
+
+  /* ---------- open / close ----------
+     morph() hands one element's box to another across a DOM change, so the
+     cover appears to grow out of the deck and the numeral to shrink into the
+     article header. Browsers without View Transitions just cut. */
+  function morph(name, from, update, to){
+    if(!document.startViewTransition || reduce){ update(); return; }
+    if(from) from.style.viewTransitionName = name;
+    var vt = document.startViewTransition(function(){
+      if(from) from.style.viewTransitionName = '';
+      update();
+      var t = to();
+      if(t) t.style.viewTransitionName = name;
+    });
+    vt.finished.then(function(){ var t = to(); if(t) t.style.viewTransitionName = ''; })
+              .catch(function(){});
+  }
+  function deckCover(i){ return cards[i] && cards[i].querySelector('.cover'); }
+  function pageCover(i){ return pages[i] && pages[i].querySelector('.cover'); }
+
+  var lastFocus = null;
+  function openReader(i, from){
+    lastFocus = document.activeElement;
+    morph('magaz-cover', from, function(){
+      pPos = pTarget = i; renderPager();
+      reader.classList.add('is-open');
+    }, function(){ return pageCover(i); });
+    reader.querySelector('[data-reader-close]').focus();
+  }
+  function closeReader(){
+    var i = Math.round(pPos);
+    /* leave the deck showing whatever was being read */
+    goDeck(Math.round(target) + wrap(i - (((Math.round(target)%n)+n)%n)));
+    morph('magaz-cover', pageCover(i), function(){
+      reader.classList.remove('is-open');
+      statusbar.classList.remove('on-light');
+    }, function(){ return deckCover(i); });
+    if(lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function openArticle(i){
+    morph('magaz-no', pages[i].querySelector('.page-no'), function(){ fillArticle(i); },
+          function(){ return document.querySelector('[data-article-no]'); });
+  }
+  function fillArticle(i){
+    var d = ISSUES[i];
+    document.querySelector('[data-article-no]').textContent = String(i+1).padStart(2,'0');
+    var fig = ISSUES[(i+1) % n].img;
+    document.querySelector('[data-article-body]').innerHTML =
+        '<h1 class="article-title">' + d.title + '</h1>'
+      + '<p class="lead">' + d.teaser + '</p>'
+      + '<p>' + d.body.join('</p><p>') + '</p>'
+      + '<figure class="article-fig"><img src="' + fig + '" alt="" loading="lazy" decoding="async">'
+      +   '<figcaption>' + d.cover + ' — ' + d.date + '</figcaption></figure>'
+      + '<p class="article-end">End</p>';
+    article.scrollTop = 0;
+    article.classList.add('is-open');
+    article.querySelector('[data-article-close]').focus();
+  }
+  function closeArticle(){
+    var i = Math.round(pPos);
+    morph('magaz-no', document.querySelector('[data-article-no]'), function(){
+      article.classList.remove('is-open');
+    }, function(){ return pages[i] && pages[i].querySelector('.page-no'); });
+    reader.querySelector('[data-reader-close]').focus();
+  }
+  document.querySelector('[data-reader-close]').addEventListener('click', closeReader);
+  document.querySelector('[data-article-close]').addEventListener('click', closeArticle);
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Escape') return;
+    if(article.classList.contains('is-open')) closeArticle();
+    else if(reader.classList.contains('is-open')) closeReader();
+  });
+
+  /* like / save are local to the session — no backend behind them */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-like],[data-save]'), function(b){
+    b.addEventListener('click', function(){
+      var on = b.getAttribute('aria-pressed') === 'true';
+      b.setAttribute('aria-pressed', on ? 'false' : 'true');
+      var p = b.querySelector('path');
+      if(p) p.setAttribute('fill', on ? 'none' : 'currentColor');
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-share]'), function(b){
+    b.addEventListener('click', function(){
+      var i = Math.round(pPos), d = ISSUES[i];
+      if(navigator.share) navigator.share({title:d.cover, text:d.title}).catch(function(){});
+    });
+  });
+
+  window.addEventListener('resize', function(){ layoutDeck(); renderDeck(); renderPager(); });
+  layoutDeck(); renderDeck(); renderPager();
+})();
+</script>
+</body>
+</html>
